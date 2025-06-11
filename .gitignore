@@ -1,0 +1,17 @@
+# Ignore virtual environments
+venv/
+.env/
+*.egg-info/
+__pycache__/
+
+# Ignore model files (optional)
+*.h5
+*.pkl
+*.joblib
+*.dylib
+*.so
+
+# Ignore cache
+*.log
+.cache/
+.ipynb_checkpoints/
