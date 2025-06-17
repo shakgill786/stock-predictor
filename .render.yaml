@@ -2,6 +2,7 @@ services:
   - type: web
     name: stock-predictor
     env: python
+    pythonVersion: 3.10
     buildCommand: ""
     startCommand: ./setup.sh
     plan: free
