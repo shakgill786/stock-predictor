@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: stock-predictor
+    env: python
+    buildCommand: ""
+    startCommand: ./setup.sh
+    plan: free
