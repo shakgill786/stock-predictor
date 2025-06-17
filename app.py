@@ -22,45 +22,39 @@ st.write("🔄 Auto-refreshing every 60 seconds...")
 # --- Sidebar ---
 st.sidebar.header("🔍 Settings")
 asset_type = st.sidebar.radio("Choose Asset Type", ["Stocks", "Cryptocurrency"])
+custom_ticker = st.sidebar.text_input("Custom Ticker (e.g., NFLX, BTC-USD)")
+default_stock_tickers = ["AAPL", "TSLA", "GOOG", "MSFT", "AMZN", "NVDA", "META"]
+default_crypto_tickers = ["BTC-USD", "ETH-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "XRP-USD", "LTC-USD"]
 
-default_tickers = {
-    "Stocks": ["AAPL", "TSLA", "GOOG", "MSFT", "AMZN", "NVDA", "META"],
-    "Cryptocurrency": ["BTC-USD", "ETH-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "XRP-USD", "BNB-USD"]
-}
-
-tickers = default_tickers[asset_type]
+tickers = default_stock_tickers if asset_type == "Stocks" else default_crypto_tickers
 ticker = st.sidebar.selectbox("Select Ticker", tickers)
-custom_ticker = st.sidebar.text_input("Or enter custom ticker (e.g. NFLX, LTC-USD)", "")
-ticker = custom_ticker.strip().upper() if custom_ticker else ticker
+ticker = custom_ticker.upper() if custom_ticker else ticker
 
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365))
 end_date = st.sidebar.date_input("End Date", datetime.now())
 
-# --- Model Toggles ---
-st.sidebar.markdown("### ✅ Toggle Models")
-enabled_models = {
-    "Random Forest": st.sidebar.checkbox("Random Forest", value=True),
-    "Linear Regression": st.sidebar.checkbox("Linear Regression", value=True),
-    "XGBoost": st.sidebar.checkbox("XGBoost", value=True),
-    "Prophet": st.sidebar.checkbox("Prophet", value=True),
-    "ARIMA": st.sidebar.checkbox("ARIMA", value=True),
-    "LSTM": st.sidebar.checkbox("LSTM", value=True)
-}
-
 # --- Fetch Data ---
 df = yf.download(ticker, start=start_date, end=end_date)
+if df.empty:
+    st.error("Failed to load data. Check the ticker symbol.")
+    st.stop()
 df = df[['Close']].dropna()
 df.reset_index(inplace=True)
 df.columns = ['ds', 'y']
 
-if df.empty:
-    st.error("⚠️ No data available. Please check the ticker or date range.")
-    st.stop()
-
-# --- Current Price ---
+# --- Current Price Display ---
 st.subheader(f"💰 Current Price for {ticker}")
 latest_price = df['y'].iloc[-1]
 st.metric("Last Close", f"${latest_price:.2f}")
+
+# --- RSI Chart ---
+try:
+    from ta.momentum import RSIIndicator
+    rsi = RSIIndicator(close=df['y']).rsi()
+    df['RSI'] = rsi
+    st.line_chart(df.set_index('ds')[['y', 'RSI']])
+except Exception as e:
+    st.warning(f"RSI unavailable: {e}")
 
 # --- Feature Engineering ---
 df['Lag1'] = df['y'].shift(1)
@@ -68,132 +62,144 @@ df['Lag2'] = df['y'].shift(2)
 df = df.dropna()
 X = df[['Lag1', 'Lag2']]
 y = df['y']
-X_train, X_test = X[:-7], X[-7:]
-y_train, y_test = y[:-7], y[-7:]
 
-# --- Model Forecasts ---
+split_idx = int(len(df) * 0.8)
+X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+
+# --- Model Toggles ---
+st.sidebar.markdown("### ✅ Select Models")
+use_rf = st.sidebar.checkbox("Random Forest", value=True)
+use_lr = st.sidebar.checkbox("Linear Regression", value=True)
+use_xgb = st.sidebar.checkbox("XGBoost", value=True)
+use_prophet = st.sidebar.checkbox("Prophet", value=True)
+use_arima = st.sidebar.checkbox("ARIMA", value=True)
+use_lstm = st.sidebar.checkbox("LSTM", value=True)
+
 results = {}
-actual_7 = y_test.values
 
 # --- Traditional ML Models ---
-ml_models = {
-    "Random Forest": RandomForestRegressor(n_estimators=100),
-    "Linear Regression": LinearRegression(),
-    "XGBoost": XGBRegressor(objective='reg:squarederror', n_estimators=100)
-}
-
-for name, model in ml_models.items():
-    if not enabled_models[name]: continue
+if use_rf:
+    model = RandomForestRegressor(n_estimators=100)
     model.fit(X_train, y_train)
-    forecast = model.predict(X_test)
-    results[name] = {
-        "forecast": forecast,
-        "pred": forecast[-1],
-        "rmse": mean_squared_error(actual_7, forecast) ** 0.5,
-        "mae": mean_absolute_error(actual_7, forecast),
-        "r2": r2_score(actual_7, forecast)
+    pred_rf = model.predict(X_test)
+    results["Random Forest"] = {
+        "pred": pred_rf[-1],
+        "rmse": mean_squared_error(y_test, pred_rf) ** 0.5,
+        "mae": mean_absolute_error(y_test, pred_rf),
+        "r2": r2_score(y_test, pred_rf),
+        "forecast": model.predict(X[-7:])
     }
 
-# --- Prophet ---
-if enabled_models["Prophet"]:
-    df_prophet = df[['ds', 'y']]
+if use_lr:
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    pred_lr = model.predict(X_test)
+    results["Linear Regression"] = {
+        "pred": pred_lr[-1],
+        "rmse": mean_squared_error(y_test, pred_lr) ** 0.5,
+        "mae": mean_absolute_error(y_test, pred_lr),
+        "r2": r2_score(y_test, pred_lr),
+        "forecast": model.predict(X[-7:])
+    }
+
+if use_xgb:
+    model = XGBRegressor(objective='reg:squarederror', n_estimators=100)
+    model.fit(X_train, y_train)
+    pred_xgb = model.predict(X_test)
+    results["XGBoost"] = {
+        "pred": pred_xgb[-1],
+        "rmse": mean_squared_error(y_test, pred_xgb) ** 0.5,
+        "mae": mean_absolute_error(y_test, pred_xgb),
+        "r2": r2_score(y_test, pred_xgb),
+        "forecast": model.predict(X[-7:])
+    }
+
+# --- Prophet Forecast ---
+if use_prophet:
+    prophet_df = df[['ds', 'y']]
     prophet = Prophet()
-    prophet.fit(df_prophet)
+    prophet.fit(prophet_df)
     future = prophet.make_future_dataframe(periods=7)
-    forecast_df = prophet.predict(future)
-    forecast = forecast_df['yhat'].iloc[-7:].values
+    forecast = prophet.predict(future)
+    forecast_values = forecast['yhat'].iloc[-7:].values
     results["Prophet"] = {
-        "forecast": forecast,
-        "pred": forecast[-1],
-        "rmse": mean_squared_error(actual_7, forecast) ** 0.5,
-        "mae": mean_absolute_error(actual_7, forecast),
-        "r2": r2_score(actual_7, forecast)
+        "pred": forecast_values[-1],
+        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast_values) ** 0.5,
+        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast_values),
+        "r2": r2_score(df['y'].iloc[-7:], forecast_values),
+        "forecast": forecast_values
     }
 
 # --- ARIMA ---
-if enabled_models["ARIMA"]:
-    arima_model = ARIMA(df['y'], order=(5,1,0)).fit()
-    forecast = arima_model.forecast(steps=7)
+if use_arima:
+    model = ARIMA(df['y'], order=(5, 1, 0)).fit()
+    forecast = model.forecast(steps=7)
     results["ARIMA"] = {
-        "forecast": forecast.values,
         "pred": forecast.iloc[-1],
-        "rmse": mean_squared_error(actual_7, forecast) ** 0.5,
-        "mae": mean_absolute_error(actual_7, forecast),
-        "r2": r2_score(actual_7, forecast)
+        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast) ** 0.5,
+        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast),
+        "r2": r2_score(df['y'].iloc[-7:], forecast),
+        "forecast": forecast.values
     }
 
 # --- LSTM ---
-if enabled_models["LSTM"]:
+if use_lstm:
     scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(df['y'].values.reshape(-1, 1))
+    scaled_data = scaler.fit_transform(df['y'].values.reshape(-1, 1))
     X_lstm, y_lstm = [], []
-    for i in range(60, len(scaled) - 7):
-        X_lstm.append(scaled[i-60:i])
-        y_lstm.append(scaled[i:i+7])
+    for i in range(60, len(scaled_data) - 7):
+        X_lstm.append(scaled_data[i-60:i])
+        y_lstm.append(scaled_data[i:i+7])
     X_lstm, y_lstm = np.array(X_lstm), np.array(y_lstm)
 
-    model_lstm = Sequential()
-    model_lstm.add(LSTM(50, return_sequences=True, input_shape=(60, 1)))
-    model_lstm.add(LSTM(50))
-    model_lstm.add(Dense(7))
-    model_lstm.compile(optimizer='adam', loss='mse')
-    model_lstm.fit(X_lstm, y_lstm, epochs=5, batch_size=16, verbose=0)
+    model = Sequential()
+    model.add(LSTM(50, return_sequences=True, input_shape=(60, 1)))
+    model.add(LSTM(50))
+    model.add(Dense(7))
+    model.compile(optimizer='adam', loss='mse')
+    model.fit(X_lstm, y_lstm, epochs=5, batch_size=16, verbose=0)
 
-    x_input = scaled[-60:].reshape(1, 60, 1)
-    scaled_forecast = model_lstm.predict(x_input)[0]
-    forecast = scaler.inverse_transform(scaled_forecast.reshape(-1, 1)).flatten()
-
+    x_input = scaled_data[-60:].reshape(1, 60, 1)
+    forecast = model.predict(x_input)[0]
+    forecast = scaler.inverse_transform(forecast.reshape(-1, 1)).flatten()
     results["LSTM"] = {
-        "forecast": forecast,
         "pred": forecast[-1],
-        "rmse": mean_squared_error(actual_7, forecast) ** 0.5,
-        "mae": mean_absolute_error(actual_7, forecast),
-        "r2": r2_score(actual_7, forecast)
+        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast) ** 0.5,
+        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast),
+        "r2": r2_score(df['y'].iloc[-7:], forecast),
+        "forecast": forecast
     }
 
-# --- Prediction Metrics ---
-st.subheader("📊 Model Predictions")
-for name, res in results.items():
-    st.markdown(
-        f"**{name}** ➝ "
-        f"Pred: `${res['pred']:.2f}` | "
-        f"RMSE: `{res['rmse']:.4f}` | "
-        f"MAE: `{res['mae']:.4f}` | "
-        f"R²: `{res['r2']:.4f}`"
-    )
+# --- Model Prediction Table ---
+st.subheader("📊 Model Predictions & Metrics")
+for name, data in results.items():
+    st.write(f"**{name}** ➝ Predicted: `${data['pred']:.2f}` | RMSE: `{data['rmse']:.4f}` | MAE: `{data['mae']:.4f}` | R²: `{data['r2']:.4f}`")
+
+st.caption("📘 RMSE = Root Mean Squared Error, MAE = Mean Absolute Error, R² = Coefficient of Determination")
+
+# --- Recommendation Logic ---
+best_model = min(results.items(), key=lambda x: x[1]['rmse'])[0]
+recommend = "Buy ✅" if results[best_model]['r2'] > 0.85 else "Hold ⚖️"
+
+st.subheader("📈 Recommendation")
+st.success(f"Based on {best_model} model with high R², today's recommendation: **{recommend}**")
 
 # --- Forecast Comparison Table ---
 st.subheader("📅 7-Day Forecast Comparison")
-comparison_df = pd.DataFrame({"Date": df['ds'].iloc[-7:].values, "Actual": actual_7})
-for name, res in results.items():
-    comparison_df[name] = res['forecast']
-st.dataframe(comparison_df)
-
-# --- Comparison Chart ---
-st.subheader("📈 7-Day Prediction vs Actual Chart")
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=comparison_df["Date"], y=comparison_df["Actual"], name="Actual", line=dict(width=3)))
+forecast_df = pd.DataFrame({'Date': pd.date_range(df['ds'].iloc[-1] + timedelta(days=1), periods=7)})
 for name in results:
-    fig.add_trace(go.Scatter(x=comparison_df["Date"], y=comparison_df[name], name=name))
-fig.update_layout(xaxis_title="Date", yaxis_title="Price", legend_title="Model")
-st.plotly_chart(fig, use_container_width=True)
+    forecast_df[name] = results[name]["forecast"]
+st.dataframe(forecast_df)
 
 # --- Confidence Bar Chart ---
-st.subheader("📉 Model Confidence (Error Comparison)")
-bar_fig = go.Figure()
-bar_fig.add_trace(go.Bar(
+st.subheader("📉 Model Confidence (Lower RMSE = Better)")
+bar_fig = go.Figure(go.Bar(
     x=list(results.keys()),
-    y=[results[name]['rmse'] for name in results],
-    name="RMSE",
-    text=[f"{results[name]['rmse']:.4f}" for name in results],
+    y=[results[k]["rmse"] for k in results],
+    text=[f"{results[k]['rmse']:.4f}" for k in results],
     textposition="auto"
 ))
-bar_fig.add_trace(go.Bar(
-    x=list(results.keys()),
-    y=[results[name]['mae'] for name in results],
-    name="MAE",
-    text=[f"{results[name]['mae']:.4f}" for name in results],
-    textposition="auto"
-))
-bar_fig.update_layout(barmode='group', yaxis_title="Error", xaxis_title="Model")
+bar_fig.update_layout(xaxis_title="Model", yaxis_title="RMSE")
 st.plotly_chart(bar_fig, use_container_width=True)
+
