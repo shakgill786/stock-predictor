@@ -213,6 +213,43 @@ forecast_df = pd.DataFrame({'Date': pd.date_range(df['ds'].iloc[-1] + timedelta(
 for name in results:
     forecast_df[name] = results[name]["forecast"]
 st.dataframe(forecast_df)
+# --- Actual vs Predicted Close Chart (Last 7 Days) ---
+st.subheader("📉 Actual vs Predicted Closes (Last 7 Days)")
+
+# Get actual closes for the last 7 days
+actual_last_7 = df['y'].iloc[-7:].values
+dates_last_7 = df['ds'].iloc[-7:].dt.strftime('%Y-%m-%d').values
+
+# Build plotly figure
+fig = go.Figure()
+
+# Add actual line
+fig.add_trace(go.Scatter(
+    x=dates_last_7,
+    y=actual_last_7,
+    mode='lines+markers',
+    name='Actual Close',
+    line=dict(color='black', width=3, dash='solid')
+))
+
+# Add predictions from each model
+for model_name, model_data in results.items():
+    fig.add_trace(go.Scatter(
+        x=dates_last_7,
+        y=model_data['forecast'],
+        mode='lines+markers',
+        name=model_name + " Prediction"
+    ))
+
+fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Price ($)",
+    title="📊 7-Day Actual vs Predicted Closes",
+    legend_title="Legend",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # --- Confidence Bar Chart ---
 st.subheader("📉 Model Confidence (Lower RMSE = Better)")
