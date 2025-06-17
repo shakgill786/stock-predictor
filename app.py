@@ -42,10 +42,32 @@ df = df[['Close']].dropna()
 df.reset_index(inplace=True)
 df.columns = ['ds', 'y']
 
-# --- Current Price Display ---
+# --- Current Price Display (from historical data) ---
 st.subheader(f"💰 Current Price for {ticker}")
-latest_price = df['y'].iloc[-1]
-st.metric("Last Close", f"${latest_price:.2f}")
+last_close = df['y'].iloc[-1]
+st.metric("Last Close", f"${last_close:.2f}")
+
+# --- Live Price Ticker (from real-time data) ---
+try:
+    live_info = yf.Ticker(ticker).info
+    live_price = live_info.get("regularMarketPrice", last_close)
+    prev_close = live_info.get("previousClose", last_close)
+    live_change_pct = ((live_price - prev_close) / prev_close) * 100
+
+    st.markdown("### 📡 Live Ticker")
+    st.markdown(
+        f"""
+        <div style='padding: 10px; background-color: #f0f2f6; border-radius: 10px; display: flex; align-items: center; justify-content: space-between;'>
+            <span style='font-size: 24px; font-weight: bold;'>{ticker}</span>
+            <span style='font-size: 20px; color: {"green" if live_change_pct >= 0 else "red"};'>
+                ${live_price:.2f} {"🔺" if live_change_pct >= 0 else "🔻"} {live_change_pct:.2f}%
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch live data: {e}")
 
 # --- RSI Chart ---
 try:
