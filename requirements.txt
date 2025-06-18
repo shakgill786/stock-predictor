@@ -41,9 +41,9 @@ matplotlib
 mccabe==0.7.0
 meteostat==1.6.8
 narwhals==1.40.0
-numpy
+numpy==1.23.5
 packaging==24.2
-pandas==2.1.4
+pandas==1.5.3
 pillow==10.2.0
 platformdirs==4.3.0
 pluggy==1.5.0
