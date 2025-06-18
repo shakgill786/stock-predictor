@@ -1,3 +1,5 @@
+setuptools>=60.0.0
+wheel>=0.37.0
 alembic==1.15.1
 altair==5.5.0
 astroid==3.3.9
