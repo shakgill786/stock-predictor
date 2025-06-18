@@ -1,3 +1,5 @@
+pip install --upgrade pip
+
 #!/bin/bash
 
 # Ensure Streamlit uses correct port
