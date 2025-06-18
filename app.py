@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import time
 from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
@@ -29,7 +30,7 @@ defaults = {
 }
 tickers = defaults[asset_type]
 selected = st.sidebar.selectbox("Select Ticker", tickers)
-ticker = (custom_ticker.strip().upper() or selected)
+ticker = custom_ticker.strip().upper() or selected
 
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365))
 end_date = st.sidebar.date_input("End Date", datetime.now())
@@ -47,14 +48,52 @@ model_flags = {
 # --- Data loader with caching ---
 @st.cache_data(ttl=3600)
 def fetch_close_data(symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
-    # bump end by one day for inclusivity
+    """
+    Attempts to fetch historical close data via yf.download, with fallback to Ticker.history.
+    Raises ValueError on failure.
+    """
     end_inc = end + timedelta(days=1)
-    # debug log
     st.write(f"🔍 Loading {symbol} from {start:%Y-%m-%d} to {end:%Y-%m-%d}")
-    df = yf.download(symbol, start=start, end=end_inc, threads=False, progress=False)
+
+    df = None
+    # Primary: yf.download
+    try:
+        df = yf.download(symbol, start=start, end=end_inc, threads=False, progress=False)
+        if df is None or df.empty:
+            st.write("⚠️ yf.download returned empty; trying Ticker.history...")
+            df = None
+        else:
+            st.write("✅ Data loaded via yf.download")
+    except Exception as e:
+        st.write(f"❌ yf.download error: {e}")
+        df = None
+
+    # Fallback: Ticker.history
+    if df is None:
+        try:
+            st.write("🔍 Fetching via Ticker.history...")
+            ticker_obj = yf.Ticker(symbol)
+            time.sleep(0.5)
+            df = ticker_obj.history(start=start, end=end_inc, interval="1d", actions=False)
+            if df is None or df.empty:
+                st.write("❌ Ticker.history returned empty")
+                df = None
+            else:
+                st.write("✅ Data loaded via Ticker.history")
+        except Exception as e:
+            st.write(f"❌ Ticker.history error: {e}")
+            df = None
+
     if df is None or df.empty:
-        raise ValueError(f"No data returned for {symbol}")
-    df = df[["Close"]].dropna().reset_index().rename(columns={"Date":"ds","Close":"y"})
+        raise ValueError(f"No data available for {symbol}")
+
+    df = (
+        df[["Close"]]
+          .rename(columns={"Close":"y"})
+          .reset_index()
+          .rename(columns={"Date":"ds"})
+          .dropna()
+    )
     return df
 
 # --- Fetch & validate ---
@@ -91,7 +130,7 @@ try:
     from ta.momentum import RSIIndicator
     df["RSI"] = RSIIndicator(close=df["y"]).rsi()
     st.subheader("📈 Price & RSI")
-    st.line_chart(df.set_index("ds")[["y","RSI"]])
+    st.line_chart(df.set_index("ds")[['y','RSI']])
 except Exception:
     st.warning("RSI calculation unavailable.")
 
@@ -126,7 +165,7 @@ if model_flags["Linear Regression"]:
 if model_flags["XGBoost"]:
     evaluate(XGBRegressor(objective="reg:squarederror", n_estimators=100), "XGBoost")
 
-# Prophet
+# --- Prophet ---
 if model_flags["Prophet"]:
     m = Prophet()
     m.fit(df[["ds","y"]])
@@ -141,7 +180,7 @@ if model_flags["Prophet"]:
         "forecast": ph
     }
 
-# ARIMA
+# --- ARIMA ---
 if model_flags["ARIMA"]:
     ar = ARIMA(df["y"], order=(5,1,0)).fit()
     ar_fc = ar.forecast(7)
@@ -154,7 +193,7 @@ if model_flags["ARIMA"]:
         "forecast": ar_fc.values
     }
 
-# LSTM
+# --- LSTM ---
 if model_flags["LSTM"]:
     scaler = MinMaxScaler()
     vals = scaler.fit_transform(df["y"].values.reshape(-1,1))
@@ -185,7 +224,7 @@ if model_flags["LSTM"]:
 # --- Display metrics & recommendation ---
 st.subheader("📊 Model Predictions & Metrics")
 for name,res in results.items():
-    st.write(f"**{name}** – Pred=${res['pred']:.2f} | RMSE={res['rmse']:.4f} | MAE={res['mae']:.4f} | R²={res['r2']:.4f}")
+    st.write(f"**{name}** – Pred=${{res['pred']:.2f}} | RMSE={{res['rmse']:.4f}} | MAE={{res['mae']:.4f}} | R²={{res['r2']:.4f}}")
 
 best = min(results, key=lambda m: results[m]["rmse"])
 rec  = "Buy ✅" if results[best]["r2"] > 0.85 else "Hold ⚖️"
