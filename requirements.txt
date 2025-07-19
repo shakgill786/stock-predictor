@@ -1,5 +1,7 @@
-# Core dashboard
-streamlit>=1.26,<1.28
+# Streamlit dashboard (v1.25.x to avoid protobuf conflict)
+streamlit<1.26
+
+# Data & finance
 yfinance>=0.2
 pandas>=1.5
 numpy>=1.23
@@ -10,8 +12,8 @@ xgboost>=2.0
 statsmodels>=0.14
 prophet>=1.1
 
-# Deep learning (CPU-compatible TF)
-tensorflow>=2.10,<2.11
+# Deep learning (CPU)
+tensorflow>=2.11,<2.12
 
 # Visualization
 plotly>=5.16
