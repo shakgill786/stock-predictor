@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-
-# (Optional) upgrade pip
 pip install --upgrade pip
 
 echo "Launching Streamlit on port $PORT..."
