@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# upgrade pip so we get the new resolver
+# upgrade pip first
 pip install --upgrade pip
 
-echo "Launching Streamlit on port $PORT..."
+# install everything
+pip install -r requirements.txt
+
+# start Streamlit on the port Render assigns
 streamlit run app.py \
-  --server.port $PORT \
-  --server.address 0.0.0.0 \
-  --server.enableCORS=false
+  --server.port=$PORT \
+  --server.enableXsrfProtection=false

@@ -1,18 +1,56 @@
-# Dashboard & UI
-streamlit<1.26
-yfinance>=0.2
-pandas>=1.5
+# build tools
+setuptools>=67.0
+wheel>=0.40
 
-# Numeric & ML
-numpy>=1.23,<2
+# core data science
+numpy>=1.23,<2.0
+pandas>=1.5
+scipy>=1.11
 scikit-learn>=1.4
+scikit-optimize>=0.10
 xgboost>=2.0
 statsmodels>=0.14
 prophet>=1.1
 
-# Deep learning (CPU)
-tensorflow>=2.11,<2.12
-keras>=2.11,<2.12
+# deep learning (CPU)
+tensorflow>=2.11.0,<2.12
+keras>=2.11.0,<2.12
 
-# Charts
+# protobuf (satisfy both TF and Streamlit)
+protobuf>=3.20,<5
+
+# technical analysis & extras
+ta>=0.11
+fastf1>=3.5
+meteostat>=1.6
+yfinance>=0.2
+
+# web framework
+Flask>=3.1
+Werkzeug>=3.1,<4
+flask-cors>=5.0
+Flask-Migrate>=4.1
+Flask-SQLAlchemy>=3.1
+Flask-WTF>=1.2
+alembic>=1.15
+
+# dashboard / UI
+streamlit>=1.26,<1.28
 plotly>=5.16
+altair>=5.5
+
+# HTTP & caching
+requests>=2.31
+requests-cache>=1.2
+
+# utilities
+click>=8.1
+python-dotenv>=1.0
+python-dateutil>=2.9
+pytz>=2024.1
+tzdata>=2024.1
+
+# HTML parsing
+lxml>=4.9
+html5lib>=1.1
+beautifulsoup4>=4.12
