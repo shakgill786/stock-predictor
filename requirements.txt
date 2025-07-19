@@ -1,55 +1,18 @@
-# Build tools
-setuptools>=67.0
-wheel>=0.40
-
-# Core data science
-numpy>=1.23
+# Core
+streamlit>=1.26,<1.28
+yfinance>=0.2
 pandas>=1.5
-scipy>=1.11
+numpy>=1.23
+
+# Models & stats
 scikit-learn>=1.4
-scikit-optimize>=0.10
 xgboost>=2.0
 statsmodels>=0.14
 prophet>=1.1
 
-# Deep learning (macOS)
-tensorflow-macos>=2.11,<2.12
-tensorflow-metal>=0.8
+# Deep learning
+tensorflow>=2.11,<2.12
 keras>=2.11,<2.12
 
-# Technical analysis & extras
-ta>=0.11
-fastf1>=3.5
-meteostat>=1.6
-yfinance>=0.2
-
-# Web framework
-Flask>=3.1
-Werkzeug>=3.1,<4
-flask-cors>=5.0
-Flask-Migrate>=4.1
-Flask-SQLAlchemy>=3.1
-Flask-WTF>=1.2
-alembic>=1.15
-
-# Dashboard / UI
-# Lock streamlit to a 1.27.x line so it picks a protobuf <3.20
-streamlit>=1.26,<1.28
+# Visualization
 plotly>=5.16
-altair>=5.5
-
-# HTTP & caching
-requests>=2.31
-requests-cache>=1.2
-
-# Utilities
-click>=8.1
-python-dotenv>=1.0
-python-dateutil>=2.9
-pytz>=2024.1
-tzdata>=2024.1
-
-# HTML parsing for your gainers/losers scraper
-lxml>=4.9
-html5lib>=1.1
-beautifulsoup4>=4.12
