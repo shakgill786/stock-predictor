@@ -61,6 +61,53 @@ try:
 except Exception as e:
     st.warning(f"⚠️ Live ticker unavailable: {e}")
 
+# --- Earnings & Dividend Info ---
+try:
+    tkr = yf.Ticker(ticker)
+    cal = tkr.calendar
+
+    # Next earnings date (handle both DataFrame and dict)
+    if isinstance(cal, dict):
+        edates = cal.get('Earnings Date')
+        if edates:
+            nxt = edates[0] if isinstance(edates, (list, tuple)) else edates
+            nxt = pd.to_datetime(nxt).date()
+            st.markdown(f"**🗓️ Next Earnings Date:** {nxt}")
+        else:
+            st.markdown("**🗓️ Next Earnings Date:** N/A")
+    else:
+        if 'Earnings Date' in cal.index:
+            nxt = cal.loc['Earnings Date'][0]
+            nxt = pd.to_datetime(nxt).date()
+            st.markdown(f"**🗓️ Next Earnings Date:** {nxt}")
+        else:
+            st.markdown("**🗓️ Next Earnings Date:** N/A")
+
+    # Last quarterly earnings & EPS
+    qearn = tkr.quarterly_earnings
+    if isinstance(qearn, pd.DataFrame) and not qearn.empty:
+        last_date = pd.to_datetime(qearn.index[-1]).date()
+        last_eps  = qearn['Earnings'].iloc[-1]
+        st.markdown(f"**📊 Last Earnings (Quarter):** {last_date} (EPS: ${last_eps:.2f})")
+    else:
+        st.markdown("**📊 Last Earnings (Quarter):** N/A")
+
+    # Last dividend
+    divs = tkr.dividends
+    if isinstance(divs, (pd.Series, pd.DataFrame)) and not divs.empty:
+        # if DataFrame, take a column; if Series, use directly
+        if isinstance(divs, pd.DataFrame):
+            divs = divs.iloc[:, 0]
+        div_date = divs.index[-1].date()
+        div_amt  = float(divs.iloc[-1])
+        st.markdown(f"**💰 Last Dividend:** {div_date} (${div_amt:.2f})")
+    else:
+        st.markdown("**💰 Dividend:** N/A")
+
+except Exception as e:
+    st.warning(f"⚠️ Could not fetch earnings/dividend info: {e}")
+
+
 # --- Feature Engineering ---
 delta = df['Close'].diff()
 gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
