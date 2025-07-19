@@ -1,0 +1,55 @@
+# Build tools
+setuptools>=67.0
+wheel>=0.40
+
+# Core data science
+numpy==1.23.5
+pandas==1.5.3
+scipy==1.11.4
+scikit-learn==1.4.2
+scikit-optimize==0.10.2
+xgboost==2.0.3
+statsmodels==0.14.2
+prophet==1.1.5
+
+# Deep learning on macOS
+tensorflow-macos==2.11.0
+tensorflow-metal==0.8.0
+# Keras will be pulled in by TF (must be <2.12 for TF-macOS 2.11)
+
+# Technical analysis & data feeds
+ta==0.11.0
+fastf1==3.5.3
+meteostat==1.6.8
+yfinance==0.2.24
+
+# Web framework & database
+Flask==3.1.0
+Werkzeug>=3.1,<4.0
+flask-cors==5.0.1
+Flask-Migrate==4.1.0
+Flask-SQLAlchemy==3.1.1
+Flask-WTF==1.2.2
+alembic==1.15.1
+
+# Dashboard / UI
+# Pin Streamlit to <1.26 so it stays compatible with protobuf<3.20 (which TF-macOS needs)
+streamlit<1.26.0
+plotly==5.16.0
+altair==5.5.0
+
+# HTTP & caching
+requests==2.31.0
+requests-cache==1.2.1
+
+# Utilities
+click==8.1.8
+python-dotenv==1.0.1
+python-dateutil>=2.9.0
+pytz==2024.1
+tzdata==2024.1
+
+# HTML parsing for “top movers” / earnings calendar
+lxml>=4.9.0
+beautifulsoup4>=4.12.2
+html5lib>=1.1

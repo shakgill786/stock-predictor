@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from xgboost import XGBRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.model_selection import RandomizedSearchCV
 from prophet import Prophet
 from statsmodels.tsa.arima.model import ARIMA
 from keras.models import Sequential
@@ -14,214 +15,228 @@ from keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
 import plotly.graph_objects as go
 
-# --- Config ---
+# --- Streamlit config ---
 st.set_page_config(page_title="📈 Stock & Crypto Predictor", layout="wide")
 st.title("🔮 Real-Time Stock & Crypto Dashboard")
-st.write("🔄 Auto-refreshing every 60 seconds...")
+st.write("🔄 Auto-refreshing every 60 seconds…")
 
-# --- Sidebar ---
+# --- Sidebar settings ---
 st.sidebar.header("🔍 Settings")
-asset_type = st.sidebar.radio("Choose Asset Type", ["Stocks", "Cryptocurrency"])
-custom_ticker = st.sidebar.text_input("Custom Ticker (e.g., NFLX, BTC-USD)")
-default_stock_tickers = ["AAPL", "TSLA", "GOOG", "MSFT", "AMZN", "NVDA", "META"]
-default_crypto_tickers = ["BTC-USD", "ETH-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "XRP-USD", "LTC-USD"]
-
-tickers = default_stock_tickers if asset_type == "Stocks" else default_crypto_tickers
-ticker = st.sidebar.selectbox("Select Ticker", tickers)
-ticker = custom_ticker.upper() if custom_ticker else ticker
-
+asset_type = st.sidebar.radio("Asset Type", ["Stocks", "Cryptocurrency"])
+custom     = st.sidebar.text_input("Custom Ticker (e.g., NFLX, BTC-USD)")
+stocks     = ["AAPL","TSLA","GOOG","MSFT","AMZN","NVDA","META"]
+cryptos    = ["BTC-USD","ETH-USD","SOL-USD","ADA-USD","DOGE-USD","XRP-USD","LTC-USD"]
+tickers    = stocks if asset_type=="Stocks" else cryptos
+ticker     = custom.upper() if custom else st.sidebar.selectbox("Select Ticker", tickers)
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365))
-end_date = st.sidebar.date_input("End Date", datetime.now())
+end_date   = st.sidebar.date_input("End Date",   datetime.now())
+horizon    = 7 if st.sidebar.selectbox("Forecast Horizon", ["7-Day","3-Day"])=="7-Day" else 3
 
-# --- Fetch Data ---
-df = yf.download(ticker, start=start_date, end=end_date)
+# --- Fetch & clean data ---
+df = yf.download(ticker, start=start_date, end=end_date, group_by=False)
+if isinstance(df.columns, pd.MultiIndex):
+    df.columns = df.columns.droplevel(0)
+df = df[['Open','High','Low','Close','Volume']].dropna()
 if df.empty:
-    st.error("Failed to load data. Check the ticker symbol.")
+    st.error("❌ No data—check your ticker")
     st.stop()
-df = df[['Close']].dropna()
-df.reset_index(inplace=True)
-df.columns = ['ds', 'y']
 
-# --- Current Price Display (from historical data) ---
+# --- Current & live price ---
+last_close = float(df['Close'].iloc[-1])
 st.subheader(f"💰 Current Price for {ticker}")
-last_close = df['y'].iloc[-1]
 st.metric("Last Close", f"${last_close:.2f}")
-
-# --- Live Price Ticker (from real-time data) ---
 try:
-    live_info = yf.Ticker(ticker).info
-    live_price = live_info.get("regularMarketPrice", last_close)
-    prev_close = live_info.get("previousClose", last_close)
-    live_change_pct = ((live_price - prev_close) / prev_close) * 100
-
-    st.markdown("### 📡 Live Ticker")
-    st.markdown(
-        f"""
-        <div style='padding: 10px; background-color: #f0f2f6; border-radius: 10px; display: flex; align-items: center; justify-content: space-between;'>
-            <span style='font-size: 24px; font-weight: bold;'>{ticker}</span>
-            <span style='font-size: 20px; color: {"green" if live_change_pct >= 0 else "red"};'>
-                ${live_price:.2f} {"🔺" if live_change_pct >= 0 else "🔻"} {live_change_pct:.2f}%
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    info  = yf.Ticker(ticker).info
+    live  = info.get("regularMarketPrice", last_close)
+    prev  = info.get("previousClose",    last_close)
+    pct   = (live - prev) / prev * 100
+    arrow = "🔺" if pct >= 0 else "🔻"
+    color = "green" if pct >= 0 else "red"
+    st.markdown(f"""
+    <div style="padding:10px;background:#f0f2f6;border-radius:8px;display:flex;justify-content:space-between;">
+      <span style="font-size:24px;font-weight:bold">{ticker}</span>
+      <span style="font-size:20px;color:{color};">${live:.2f} {arrow} {pct:.2f}%</span>
+    </div>
+    """, unsafe_allow_html=True)
 except Exception as e:
-    st.warning(f"⚠️ Could not fetch live data: {e}")
-
-# --- RSI Chart ---
-try:
-    from ta.momentum import RSIIndicator
-    rsi = RSIIndicator(close=df['y']).rsi()
-    df['RSI'] = rsi
-    st.line_chart(df.set_index('ds')[['y', 'RSI']])
-except Exception as e:
-    st.warning(f"RSI unavailable: {e}")
+    st.warning(f"⚠️ Live ticker unavailable: {e}")
 
 # --- Feature Engineering ---
-df['Lag1'] = df['y'].shift(1)
-df['Lag2'] = df['y'].shift(2)
-df = df.dropna()
-X = df[['Lag1', 'Lag2']]
-y = df['y']
+delta = df['Close'].diff()
+gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
+avg_g = gain.ewm(span=14, adjust=False).mean()
+avg_l = loss.ewm(span=14, adjust=False).mean()
+df['RSI'] = 100 - (100 / (1 + avg_g/avg_l))
+ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+df['MACD'] = ema12 - ema26 - (ema12 - ema26).ewm(span=9, adjust=False).mean()
+tr = pd.concat([
+    df['High'] - df['Low'],
+    (df['High'] - df['Close'].shift()).abs(),
+    (df['Low']  - df['Close'].shift()).abs()
+], axis=1).max(axis=1)
+df['ATR'] = tr.rolling(14).mean()
+df['Vol_Spike'] = (df['Volume'] > df['Volume'].rolling(10).mean() * 1.5).astype(int)
+try:
+    ed = pd.to_datetime(yf.Ticker(ticker).calendar.loc['Earnings Date'][0]).date()
+    df['Earnings_Flag'] = (df.index.date == ed).astype(int)
+except:
+    df['Earnings_Flag'] = 0
+df.dropna(inplace=True)
 
-split_idx = int(len(df) * 0.8)
-X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
-y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+# --- Plot Price & RSI ---
+st.subheader("📈 Price & RSI")
+st.line_chart(df[['Close','RSI']])
 
-# --- Model Toggles ---
-st.sidebar.markdown("### ✅ Select Models")
-use_rf = st.sidebar.checkbox("Random Forest", value=True)
-use_lr = st.sidebar.checkbox("Linear Regression", value=True)
-use_xgb = st.sidebar.checkbox("XGBoost", value=True)
-use_prophet = st.sidebar.checkbox("Prophet", value=True)
-use_arima = st.sidebar.checkbox("ARIMA", value=True)
-use_lstm = st.sidebar.checkbox("LSTM", value=True)
+# --- Prepare modeling frame ---
+mdl = pd.DataFrame({
+    'ds': df.index,
+    'y': df['Close'],
+    'RSI': df['RSI'],
+    'MACD': df['MACD'],
+    'ATR': df['ATR'],
+    'Vol_Spike': df['Vol_Spike'],
+    'Earnings_Flag': df['Earnings_Flag']
+})
+mdl['Lag1'] = mdl['y'].shift(1)
+mdl['Lag2'] = mdl['y'].shift(2)
+mdl.dropna(inplace=True)
+
+# --- Train/test split ---
+split = int(len(mdl) * 0.8)
+train, test = mdl.iloc[:split], mdl.iloc[split:]
+features = ['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']
+X_train, y_train = train[features], train['y'].values.ravel()
+X_test,  y_test  = test[features],  test['y'].values.ravel()
+
+# --- Models & hyperparameter tuning ---
+st.sidebar.markdown("### ✅ Models & Tuning")
+use_rf   = st.sidebar.checkbox("Random Forest",     True)
+use_lr   = st.sidebar.checkbox("Linear Regression", True)
+use_xgb  = st.sidebar.checkbox("XGBoost",           True)
+use_prop = st.sidebar.checkbox("Prophet",           True)
+use_ari  = st.sidebar.checkbox("ARIMA",             True)
+use_lstm = st.sidebar.checkbox("LSTM",              True)
+tune_hp  = st.sidebar.checkbox("Tune RF/XGB HP",    False)
 
 results = {}
 
-# --- Traditional ML Models ---
+# Random Forest
 if use_rf:
-    model = RandomForestRegressor(n_estimators=100)
-    model.fit(X_train, y_train)
-    pred_rf = model.predict(X_test)
-    results["Random Forest"] = {
-        "pred": pred_rf[-1],
-        "rmse": mean_squared_error(y_test, pred_rf) ** 0.5,
-        "mae": mean_absolute_error(y_test, pred_rf),
-        "r2": r2_score(y_test, pred_rf),
-        "forecast": model.predict(X[-7:])
-    }
+    if tune_hp:
+        params = {'n_estimators':[50,100,200],'max_depth':[None,5,10],'min_samples_split':[2,5]}
+        model = RandomizedSearchCV(RandomForestRegressor(), params, n_iter=5, cv=3).fit(X_train, y_train).best_estimator_
+    else:
+        model = RandomForestRegressor(n_estimators=100).fit(X_train, y_train)
+    pred = model.predict(X_test)
+    mape = mean_absolute_percentage_error(y_test, pred)
+    fc   = model.predict(mdl[features].iloc[-horizon:])
+    results["Random Forest"] = {"pred": pred[-1], "mape": mape, "forecast": fc}
 
+# Linear Regression
 if use_lr:
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    pred_lr = model.predict(X_test)
-    results["Linear Regression"] = {
-        "pred": pred_lr[-1],
-        "rmse": mean_squared_error(y_test, pred_lr) ** 0.5,
-        "mae": mean_absolute_error(y_test, pred_lr),
-        "r2": r2_score(y_test, pred_lr),
-        "forecast": model.predict(X[-7:])
-    }
+    model = LinearRegression().fit(X_train, y_train)
+    pred  = model.predict(X_test)
+    mape  = mean_absolute_percentage_error(y_test, pred)
+    fc    = model.predict(mdl[features].iloc[-horizon:])
+    results["Linear Regression"] = {"pred": pred[-1], "mape": mape, "forecast": fc}
 
+# XGBoost
 if use_xgb:
-    model = XGBRegressor(objective='reg:squarederror', n_estimators=100)
-    model.fit(X_train, y_train)
-    pred_xgb = model.predict(X_test)
-    results["XGBoost"] = {
-        "pred": pred_xgb[-1],
-        "rmse": mean_squared_error(y_test, pred_xgb) ** 0.5,
-        "mae": mean_absolute_error(y_test, pred_xgb),
-        "r2": r2_score(y_test, pred_xgb),
-        "forecast": model.predict(X[-7:])
-    }
+    if tune_hp:
+        params = {'n_estimators':[50,100,200],'learning_rate':[0.01,0.1,0.2],'max_depth':[3,5,7]}
+        model = RandomizedSearchCV(XGBRegressor(objective='reg:squarederror'), params, n_iter=5, cv=3).fit(X_train, y_train).best_estimator_
+    else:
+        model = XGBRegressor(objective='reg:squarederror', n_estimators=100).fit(X_train, y_train)
+    pred = model.predict(X_test)
+    mape = mean_absolute_percentage_error(y_test, pred)
+    fc   = model.predict(mdl[features].iloc[-horizon:])
+    results["XGBoost"] = {"pred": pred[-1], "mape": mape, "forecast": fc}
 
-# --- Prophet Forecast ---
-if use_prophet:
-    prophet_df = df[['ds', 'y']]
-    prophet = Prophet()
-    prophet.fit(prophet_df)
-    future = prophet.make_future_dataframe(periods=7)
-    forecast = prophet.predict(future)
-    forecast_values = forecast['yhat'].iloc[-7:].values
-    results["Prophet"] = {
-        "pred": forecast_values[-1],
-        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast_values) ** 0.5,
-        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast_values),
-        "r2": r2_score(df['y'].iloc[-7:], forecast_values),
-        "forecast": forecast_values
-    }
+# Prophet
+if use_prop:
+    try:
+        pdf = mdl[['ds','y']].copy()
+        pdf['y'] = pdf['y'].astype(float)
+        m   = Prophet().fit(pdf)
+        fut = m.make_future_dataframe(periods=horizon)
+        pr  = m.predict(fut)['yhat'].iloc[-horizon:].values
+        mape = mean_absolute_percentage_error(mdl['y'].iloc[-horizon:].values, pr)
+        results["Prophet"] = {"pred": pr[-1], "mape": mape, "forecast": pr}
+    except Exception as e:
+        st.warning(f"Prophet skipped: {e}")
 
-# --- ARIMA ---
-if use_arima:
-    model = ARIMA(df['y'], order=(5, 1, 0)).fit()
-    forecast = model.forecast(steps=7)
-    results["ARIMA"] = {
-        "pred": forecast.iloc[-1],
-        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast) ** 0.5,
-        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast),
-        "r2": r2_score(df['y'].iloc[-7:], forecast),
-        "forecast": forecast.values
-    }
+# ARIMA (AIC grid search)
+if use_ari:
+    best_aic, best_order = np.inf, (1,1,0)
+    for p in range(3):
+        for d in range(2):
+            for q in range(3):
+                try:
+                    mA = ARIMA(df['Close'], order=(p,d,q)).fit()
+                    if mA.aic < best_aic:
+                        best_aic, best_order = mA.aic, (p,d,q)
+                except:
+                    pass
+    mA   = ARIMA(df['Close'], order=best_order).fit()
+    pr   = mA.forecast(steps=horizon).values
+    mape = mean_absolute_percentage_error(df['Close'].iloc[-horizon:].values, pr)
+    results["ARIMA"] = {"pred": pr[-1], "mape": mape, "forecast": pr}
 
-# --- LSTM ---
+# LSTM
 if use_lstm:
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(df['y'].values.reshape(-1, 1))
-    X_lstm, y_lstm = [], []
-    for i in range(60, len(scaled_data) - 7):
-        X_lstm.append(scaled_data[i-60:i])
-        y_lstm.append(scaled_data[i:i+7])
-    X_lstm, y_lstm = np.array(X_lstm), np.array(y_lstm)
+    scaler = MinMaxScaler().fit(df['Close'].values.reshape(-1,1))
+    scaled = scaler.transform(df['Close'].values.reshape(-1,1))
+    Xl, Yl = [], []
+    for i in range(60, len(scaled)-horizon):
+        Xl.append(scaled[i-60:i,0])
+        Yl.append(scaled[i:i+horizon,0])
+    Xl, Yl = np.array(Xl), np.array(Yl)
+    Xl = Xl.reshape((Xl.shape[0], 60, 1))
+    lstm = Sequential([LSTM(50, return_sequences=True, input_shape=(60,1)),
+                       LSTM(50),
+                       Dense(horizon)])
+    lstm.compile('adam','mse')
+    lstm.fit(Xl, Yl, epochs=5, batch_size=16, verbose=0)
+    pr   = lstm.predict(Xl[-1].reshape(1,60,1))[0]
+    pred = scaler.inverse_transform(pr.reshape(-1,1)).flatten()
+    mape = mean_absolute_percentage_error(df['Close'].iloc[-horizon:].values, pred)
+    results["LSTM"] = {"pred": pred[-1], "mape": mape, "forecast": pred}
 
-    model = Sequential()
-    model.add(LSTM(50, return_sequences=True, input_shape=(60, 1)))
-    model.add(LSTM(50))
-    model.add(Dense(7))
-    model.compile(optimizer='adam', loss='mse')
-    model.fit(X_lstm, y_lstm, epochs=5, batch_size=16, verbose=0)
+# Ensemble (inverse-MAPE weights)
+weights = np.array([1/v['mape'] for v in results.values() if v['mape'] is not None])
+weights /= weights.sum()
+ens_fc  = sum(w * np.array(v['forecast']) for w, v in zip(weights, [v for v in results.values() if v['mape'] is not None]))
+results["Ensemble"] = {"pred": ens_fc[-1], "mape": None, "forecast": ens_fc}
 
-    x_input = scaled_data[-60:].reshape(1, 60, 1)
-    forecast = model.predict(x_input)[0]
-    forecast = scaler.inverse_transform(forecast.reshape(-1, 1)).flatten()
-    results["LSTM"] = {
-        "pred": forecast[-1],
-        "rmse": mean_squared_error(df['y'].iloc[-7:], forecast) ** 0.5,
-        "mae": mean_absolute_error(df['y'].iloc[-7:], forecast),
-        "r2": r2_score(df['y'].iloc[-7:], forecast),
-        "forecast": forecast
-    }
-
-# --- Model Prediction Table ---
-st.subheader("📊 Model Predictions & Metrics")
-for name, data in results.items():
-    st.write(f"**{name}** ➝ Predicted: `${data['pred']:.2f}` | RMSE: `{data['rmse']:.4f}` | MAE: `{data['mae']:.4f}` | R²: `{data['r2']:.4f}`")
-
-st.caption("📘 RMSE = Root Mean Squared Error, MAE = Mean Absolute Error, R² = Coefficient of Determination")
-
-# --- Recommendation Logic ---
-best_model = min(results.items(), key=lambda x: x[1]['rmse'])[0]
-recommend = "Buy ✅" if results[best_model]['r2'] > 0.85 else "Hold ⚖️"
-
+# --- Recommendation ---
+valid_models = {k:v for k,v in results.items() if v['mape'] is not None}
+best_model   = min(valid_models, key=lambda k: valid_models[k]['mape'])
+recommend    = "Buy ✅" if valid_models[best_model]['forecast'][-1] > last_close else "Hold ⚖️"
 st.subheader("📈 Recommendation")
-st.success(f"Based on {best_model} model with high R², today's recommendation: **{recommend}**")
+st.success(f"Based on {best_model} (lowest MAPE), recommendation: **{recommend}**")
 
-# --- Forecast Comparison Table ---
-st.subheader("📅 7-Day Forecast Comparison")
-forecast_df = pd.DataFrame({'Date': pd.date_range(df['ds'].iloc[-1] + timedelta(days=1), periods=7)})
+# --- MAPE Explanation ---
+st.caption("📘 MAPE = Mean Absolute Percentage Error, the average absolute percent difference between predictions and actuals (lower is better).")
+
+# --- Display metrics & forecasts ---
+st.subheader("📊 Model Predictions & Metrics")
+for name, d in results.items():
+    m_text = f"{d['mape']:.2%}" if d.get('mape') is not None else "N/A"
+    st.write(f"**{name}** → Pred: ${d['pred']:.2f} | MAPE: {m_text}")
+
+st.subheader(f"📅 {horizon}-Day Forecast Comparison")
+fc_df = pd.DataFrame({'Date': pd.date_range(df.index[-1] + timedelta(days=1), periods=horizon)})
 for name in results:
-    forecast_df[name] = results[name]["forecast"]
-st.dataframe(forecast_df)
+    fc_df[name] = results[name]['forecast']
+st.dataframe(fc_df)
 
-# --- Confidence Bar Chart ---
-st.subheader("📉 Model Confidence (Lower RMSE = Better)")
-bar_fig = go.Figure(go.Bar(
+st.subheader("📉 Model Confidence (Inverse-MAPE Weights)")
+fig = go.Figure(go.Bar(
     x=list(results.keys()),
-    y=[results[k]["rmse"] for k in results],
-    text=[f"{results[k]['rmse']:.4f}" for k in results],
+    y=list(weights),
+    text=[f"{w:.2%}" for w in weights],
     textposition="auto"
 ))
-bar_fig.update_layout(xaxis_title="Model", yaxis_title="RMSE")
-st.plotly_chart(bar_fig, use_container_width=True)
-
+fig.update_layout(xaxis_title="Model", yaxis_title="Weight")
+st.plotly_chart(fig, use_container_width=True)
