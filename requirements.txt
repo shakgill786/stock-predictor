@@ -1,12 +1,10 @@
-# Streamlit dashboard (v1.25.x to avoid protobuf conflict)
+# Dashboard & UI
 streamlit<1.26
-
-# Data & finance
 yfinance>=0.2
 pandas>=1.5
-numpy>=1.23
 
-# Models & stats
+# Numeric & ML
+numpy>=1.23,<2
 scikit-learn>=1.4
 xgboost>=2.0
 statsmodels>=0.14
@@ -14,6 +12,7 @@ prophet>=1.1
 
 # Deep learning (CPU)
 tensorflow>=2.11,<2.12
+keras>=2.11,<2.12
 
-# Visualization
+# Charts
 plotly>=5.16

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# upgrade pip so we get the new resolver
 pip install --upgrade pip
 
 echo "Launching Streamlit on port $PORT..."
