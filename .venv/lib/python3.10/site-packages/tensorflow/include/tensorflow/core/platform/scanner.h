@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_PLATFORM_SCANNER_H_
 #define TENSORFLOW_CORE_PLATFORM_SCANNER_H_
 
-#include "tsl/platform/scanner.h"
+#include "tensorflow/tsl/platform/scanner.h"
 
 namespace tensorflow {
 namespace strings {

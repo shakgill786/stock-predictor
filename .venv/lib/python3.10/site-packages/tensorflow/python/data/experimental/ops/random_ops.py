@@ -16,7 +16,6 @@
 import functools
 
 from tensorflow.python import tf2
-from tensorflow.python.compat import v2_compat
 from tensorflow.python.data.ops import dataset_ops
 from tensorflow.python.data.ops import random_op
 from tensorflow.python.util import deprecation
@@ -45,14 +44,3 @@ if tf2.enabled():
   RandomDataset = RandomDatasetV2
 else:
   RandomDataset = RandomDatasetV1
-
-
-def _tf2_callback():
-  global RandomDataset
-  if tf2.enabled():
-    RandomDataset = RandomDatasetV2
-  else:
-    RandomDataset = RandomDatasetV1
-
-
-v2_compat.register_data_v2_callback(_tf2_callback)

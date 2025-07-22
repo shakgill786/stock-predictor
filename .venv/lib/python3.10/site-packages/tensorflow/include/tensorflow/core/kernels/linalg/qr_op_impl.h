@@ -28,7 +28,7 @@ limitations under the License.
 #define EIGEN_USE_GPU
 #endif
 
-#include "Eigen/QR"  // from @eigen_archive
+#include "third_party/eigen3/Eigen/QR"
 #include "tensorflow/core/framework/kernel_def_builder.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
@@ -40,7 +40,7 @@ limitations under the License.
 #include "tensorflow/core/platform/types.h"
 
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/kernels/cwise_ops.h"
 #include "tensorflow/core/kernels/linalg/eye_functor.h"
 #include "tensorflow/core/kernels/linalg/matrix_band_part_op.h"
@@ -122,8 +122,7 @@ class QrOp : public LinearAlgebraOp<Scalar> {
  private:
   bool full_matrices_;
 
-  QrOp(const QrOp&) = delete;
-  void operator=(const QrOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(QrOp);
 };
 
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
@@ -307,8 +306,7 @@ class QrOpGpu : public AsyncOpKernel {
  private:
   bool full_matrices_;
 
-  QrOpGpu(const QrOpGpu&) = delete;
-  void operator=(const QrOpGpu&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(QrOpGpu);
 };
 
 #endif  // GOOGLE_CUDA

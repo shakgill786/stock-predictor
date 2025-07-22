@@ -117,8 +117,7 @@ class Spectrogram {
   std::vector<int> fft_integer_working_area_;
   std::vector<double> fft_double_working_area_;
 
-  Spectrogram(const Spectrogram&) = delete;
-  void operator=(const Spectrogram&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(Spectrogram);
 };
 
 }  // namespace tensorflow

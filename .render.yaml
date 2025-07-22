@@ -2,7 +2,10 @@ services:
   - type: web
     name: stock-predictor
     env: python
-    pythonVersion: 3.10
-    buildCommand: pip install -r requirements.txt
-    startCommand: ./setup.sh
+    # build-time only: install deps
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    # at runtime we just launch Streamlit
+    startCommand: streamlit run app.py \
+      --server.port=$PORT \
+      --server.enableXsrfProtection=false
     plan: free

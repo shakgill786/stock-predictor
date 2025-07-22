@@ -19,7 +19,7 @@ limitations under the License.
 #include <optional>
 #include <string>
 
-#include "mlir/Dialect/Quant/IR/QuantTypes.h"  // from @llvm-project
+#include "mlir/Dialect/Quant/QuantTypes.h"  // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"  // from @llvm-project
 #include "mlir/IR/Diagnostics.h"  // from @llvm-project
 #include "mlir/IR/Dialect.h"  // from @llvm-project
@@ -28,7 +28,6 @@ limitations under the License.
 // Include the dialect class generated from dialect.td.
 // The constructor and the printing/parsing of dialect types are manually
 // implemented (see ops.cpp).
-#include "mlir/Support/LLVM.h"  // from @llvm-project
 #include "tensorflow/core/ir/types/dialect.h.inc"
 
 // Include the Type classes declaration generated from types.td
@@ -53,15 +52,15 @@ class TensorFlowType : public Type {
 
 // Returns true if the specified type is a valid TensorFlow element type.
 inline bool IsValidTFElementType(Type type) {
-  return mlir::isa<ComplexType, FloatType, IntegerType, TensorFlowType,
-                   quant::QuantizedType>(type);
+  return type.isa<ComplexType, FloatType, IntegerType, TensorFlowType,
+                  quant::QuantizedType>();
 }
 
 // Returns true if this is a valid TensorFlow tensor type.
 inline bool IsValidTFTensorType(Type type) {
   // TensorFlow types should be tensors of one of the valid TensorFlow element
   // types.
-  if (auto tensor_ty = mlir::dyn_cast<TensorType>(type))
+  if (auto tensor_ty = type.dyn_cast<TensorType>())
     return IsValidTFElementType(tensor_ty.getElementType());
   return false;
 }
@@ -112,13 +111,12 @@ class TensorFlowRefType : public TensorFlowType {
 
 // Define a class for each individual TensorFlow type (dtype), see types.def
 // for the list.
-#define HANDLE_TF_TYPE(tftype, enumerant, name_marg)                     \
+#define HANDLE_TF_TYPE(tftype, enumerant, name)                          \
   class tftype##Type : public detail::TensorFlowTypeImpl<tftype##Type> { \
    public:                                                               \
     using TFBase::TFBase;                                                \
-    static constexpr StringLiteral name = #name_marg;                    \
   };
-#define HANDLE_CUSTOM_TF_TYPE(tftype, enumerant, name_marg)
+#define HANDLE_CUSTOM_TF_TYPE(tftype, enumerant, name)
 #include "tensorflow/core/ir/types/types.def"
 
 namespace detail {
@@ -224,7 +222,6 @@ inline Type GetDefaultTypeOf(TensorFlowTypeWithSubtype type) {
 class ResourceType : public detail::TypeWithSubtypeImpl<ResourceType> {
  public:
   using TFBase::TFBase;
-  static constexpr ::mlir::StringLiteral name = "tf_type.resource";
   static std::string getTypeName() { return "ResourceType"; }
 };
 
@@ -236,7 +233,6 @@ class ResourceType : public detail::TypeWithSubtypeImpl<ResourceType> {
 class VariantType : public detail::TypeWithSubtypeImpl<VariantType> {
  public:
   using TFBase::TFBase;
-  static constexpr ::mlir::StringLiteral name = "tf_type.variant";
   static std::string getTypeName() { return "VariantType"; }
 };
 
@@ -330,7 +326,7 @@ using ResultShapeRange = iterator_range<ResultShapeIterator>;
 template <typename RangeT>
 auto filter_resources(RangeT&& range) {
   return llvm::make_filter_range(std::forward<RangeT>(range), [](Value val) {
-    return mlir::isa<ResourceType>(getElementTypeOrSelf(val.getType()));
+    return getElementTypeOrSelf(val.getType()).isa<ResourceType>();
   });
 }
 
@@ -339,7 +335,7 @@ auto filter_resources(RangeT&& range) {
 // standard type if necessary.
 inline Type GetElementTypeOrSelfResolveRef(Type type) {
   Type element_type = getElementTypeOrSelf(type);
-  if (auto ref_type = mlir::dyn_cast<TensorFlowRefType>(element_type)) {
+  if (auto ref_type = element_type.dyn_cast<TensorFlowRefType>()) {
     element_type = ref_type.RemoveRef();
   }
   return element_type;

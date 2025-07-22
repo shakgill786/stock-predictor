@@ -32,13 +32,13 @@ class TFDataOptimizerBase : public CustomGraphOptimizer {
   TFDataOptimizerBase() = default;
   ~TFDataOptimizerBase() override = default;
 
-  absl::Status Optimize(Cluster* cluster, const GrapplerItem& item,
-                        GraphDef* output) final;
+  Status Optimize(Cluster* cluster, const GrapplerItem& item,
+                  GraphDef* output) final;
 
-  virtual absl::Status OptimizeAndCollectStats(Cluster* cluster,
-                                               const GrapplerItem& item,
-                                               GraphDef* output,
-                                               OptimizationStats* stats) = 0;
+  virtual Status OptimizeAndCollectStats(Cluster* cluster,
+                                         const GrapplerItem& item,
+                                         GraphDef* output,
+                                         OptimizationStats* stats) = 0;
 };
 
 }  // namespace grappler

@@ -79,7 +79,7 @@ def get_mapped_trackable(trackable, object_map):
 
 
 def get_full_name(var):
-  """Gets the full name of variable for name-based checkpoint compatibility."""
+  """Gets the full name of variable for name-based checkpoint compatiblity."""
   # pylint: disable=protected-access
   if (not (isinstance(var, variables.Variable) or
            # Some objects do not subclass Variable but still act as one.
@@ -139,8 +139,7 @@ def add_checkpoint_values_check(object_graph_proto):
         node_id in checkpointed_trackables)
 
 
-def objects_ids_and_slot_variables_and_paths(graph_view,
-                                             skip_slot_variables=False):
+def objects_ids_and_slot_variables_and_paths(graph_view):
   """Traverse the object graph and list all accessible objects.
 
   Looks for `Trackable` objects which are dependencies of
@@ -150,8 +149,6 @@ def objects_ids_and_slot_variables_and_paths(graph_view,
 
   Args:
     graph_view: A GraphView object.
-    skip_slot_variables: If True does not return trackables for slot variable.
-      Default False.
 
   Returns:
     A tuple of (trackable objects, paths from root for each object,
@@ -164,20 +161,14 @@ def objects_ids_and_slot_variables_and_paths(graph_view,
   node_ids = object_identity.ObjectIdentityDictionary()
   for node_id, node in enumerate(trackable_objects):
     node_ids[node] = node_id
-  if skip_slot_variables:
-    slot_variables = object_identity.ObjectIdentityDictionary()
-  else:
-    slot_variables = serialize_slot_variables(
-        trackable_objects=trackable_objects,
-        node_ids=node_ids,
-        object_names=object_names,
-    )
+  slot_variables = serialize_slot_variables(
+      trackable_objects=trackable_objects,
+      node_ids=node_ids,
+      object_names=object_names)
   return (trackable_objects, node_paths, node_ids, slot_variables, object_names)
 
 
-def list_objects(graph_view, skip_slot_variables=False):
+def list_objects(graph_view):
   """Traverse the object graph and list all accessible objects."""
-  trackable_objects = objects_ids_and_slot_variables_and_paths(
-      graph_view, skip_slot_variables
-  )[0]
+  trackable_objects = objects_ids_and_slot_variables_and_paths(graph_view)[0]
   return trackable_objects

@@ -21,7 +21,7 @@ limitations under the License.
 #include <string>
 
 #include "tensorflow/compiler/jit/device_compiler_client.h"
-#include "xla/pjrt/pjrt_client.h"
+#include "tensorflow/compiler/xla/pjrt/pjrt_client.h"
 
 namespace tensorflow {
 
@@ -33,19 +33,19 @@ class PjRtDeviceCompilerClient
   explicit PjRtDeviceCompilerClient(xla::PjRtClient* client)
       : client_(client) {}
 
-  absl::StatusOr<std::unique_ptr<xla::PjRtLoadedExecutable>> BuildExecutable(
+  StatusOr<std::unique_ptr<xla::PjRtLoadedExecutable>> BuildExecutable(
       const XlaCompiler::Options& options,
       const XlaCompiler::CompilationResult& result) override;
 
   // Returns a platform-specific serialization of `executable`. The
   // serialization is not guaranteed to be stable over time. `executable` must
   // have been produced by this client.
-  absl::StatusOr<std::string> SerializeExecutable(
+  StatusOr<std::string> SerializeExecutable(
       const xla::PjRtLoadedExecutable& executable) override;
 
   // PjRt doesn't support AOT compilation yet. Builds a PjRtLoadedExecutable and
   // serializes it to string.
-  absl::StatusOr<std::string> BuildSerializedExecutable(
+  StatusOr<std::string> BuildSerializedExecutable(
       const XlaCompiler::Options& options,
       const XlaCompiler::CompilationResult& result) override;
 
@@ -57,7 +57,7 @@ class PjRtDeviceCompilerClient
   // is currently only implemented for TfrtTpuPjrtClient and hence, this
   // function doesn't use PjRtClient::LoadSerializedExecutable() and uses
   // PjRtClient::DeserializeExecutable() instead.
-  absl::StatusOr<std::unique_ptr<xla::PjRtLoadedExecutable>> LoadExecutable(
+  StatusOr<std::unique_ptr<xla::PjRtLoadedExecutable>> LoadExecutable(
       const XlaCompiler::Options& options,
       const XlaCompiler::CompilationResult& result,
       const std::string& serialized_executable) override;
@@ -71,14 +71,8 @@ class PjRtDeviceCompilerClient
  private:
   xla::PjRtClient* const client_;
 
-  PjRtDeviceCompilerClient(const PjRtDeviceCompilerClient&) = delete;
-  void operator=(const PjRtDeviceCompilerClient&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(PjRtDeviceCompilerClient);
 };
-
-// Generates CompileOptions for PJRT compilation.
-xla::CompileOptions GetPjRtCompileOptions(
-    const XlaCompiler::Options& options,
-    const XlaCompiler::CompilationResult& result);
 
 }  // namespace tensorflow
 

@@ -58,9 +58,11 @@ Alternatively:
       self.assertProtoEqual(a, b)
 """
 
-import collections.abc as collections_abc
 import difflib
 import math
+
+from ..compat import collections_abc
+import six
 
 from google.protobuf import descriptor
 from google.protobuf import descriptor_pool
@@ -145,7 +147,7 @@ def checkFloatEqAndReplace(self, expected, actual, relative_tolerance):  # pylin
             == descriptor.FieldDescriptor.TYPE_MESSAGE
         ):
           for e_v, a_v in zip(
-              iter(expected_values.values()), iter(actual_values.values())
+              six.itervalues(expected_values), six.itervalues(actual_values)
           ):
             checkFloatEqAndReplace(
                 self,
@@ -189,7 +191,7 @@ def assertProtoEqual(
       comparisons are done using the relative tolerance provided.
   """
   pool = descriptor_pool.Default()
-  if isinstance(a, str):
+  if isinstance(a, six.string_types):
     a = text_format.Parse(a, b.__class__(), descriptor_pool=pool)
 
   for pb in a, b:
@@ -279,7 +281,7 @@ def NormalizeNumberFields(pb):
         # This is a map, only recurse if the values have a message type.
         if (desc.message_type.fields_by_number[2].type ==
             descriptor.FieldDescriptor.TYPE_MESSAGE):
-          for v in iter(values.values()):
+          for v in six.itervalues(values):
             NormalizeNumberFields(v)
       else:
         for v in values:
@@ -294,7 +296,7 @@ def _IsMap(value):
 
 
 def _IsRepeatedContainer(value):
-  if isinstance(value, str):
+  if isinstance(value, six.string_types):
     return False
   try:
     iter(value)

@@ -18,15 +18,13 @@ This module contains classes and functions for reading the SavedModel
 fingerprint.
 """
 
-from typing import Any
-
 from tensorflow.core.protobuf import fingerprint_pb2
 from tensorflow.python.saved_model.pywrap_saved_model import fingerprinting as fingerprinting_pywrap
 from tensorflow.python.util.tf_export import tf_export
 
 
 @tf_export("saved_model.experimental.Fingerprint", v1=[])
-class Fingerprint:
+class Fingerprint(object):
   """The SavedModel fingerprint.
 
   Each attribute of this class is named after a field name in the
@@ -44,12 +42,12 @@ class Fingerprint:
 
   def __init__(
       self,
-      saved_model_checksum: int = None,
-      graph_def_program_hash: int = None,
-      signature_def_hash: int = None,
-      saved_object_graph_hash: int = None,
-      checkpoint_hash: int = None,
-      version: int = None,
+      saved_model_checksum=None,
+      graph_def_program_hash=None,
+      signature_def_hash=None,
+      saved_object_graph_hash=None,
+      checkpoint_hash=None,
+      version=None,
   ):
     """Initializes the instance based on values in the SavedModel fingerprint.
 
@@ -69,7 +67,7 @@ class Fingerprint:
     self.version = version
 
   @classmethod
-  def from_proto(cls, proto: fingerprint_pb2.FingerprintDef) -> "Fingerprint":
+  def from_proto(cls, proto):
     """Constructs Fingerprint object from protocol buffer message."""
     if isinstance(proto, bytes):
       proto = fingerprint_pb2.FingerprintDef.FromString(proto)
@@ -86,7 +84,7 @@ class Fingerprint:
           f"Given proto could not be deserialized as fingerprint."
           f"{e}") from None
 
-  def __eq__(self, other: Any) -> bool:
+  def __eq__(self, other):
     if (isinstance(other, Fingerprint) or
         isinstance(other, fingerprint_pb2.FingerprintDef)):
       try:
@@ -100,9 +98,9 @@ class Fingerprint:
         pass
     return False
 
-  def __str__(self) -> str:
+  def __str__(self):
     return "\n".join([
-        "SavedModel Fingerprint",
+        f"SavedModel Fingerprint",
         f"  saved_model_checksum: {self.saved_model_checksum}",
         f"  graph_def_program_hash: {self.graph_def_program_hash}",
         f"  signature_def_hash: {self.signature_def_hash}",
@@ -110,14 +108,14 @@ class Fingerprint:
         f"  checkpoint_hash: {self.checkpoint_hash}"
     ])
 
-  def __repr__(self) -> str:
+  def __repr__(self):
     return (f"Fingerprint({self.saved_model_checksum}, "
             f"{self.graph_def_program_hash}, "
             f"{self.signature_def_hash}, "
             f"{self.saved_object_graph_hash}, "
             f"{self.checkpoint_hash})")
 
-  def singleprint(self) -> fingerprinting_pywrap.Singleprint:
+  def singleprint(self):
     """Canonical fingerprinting ID for a SavedModel.
 
     Uniquely identifies a SavedModel based on the regularized fingerprint
@@ -149,7 +147,7 @@ class Fingerprint:
 
 
 @tf_export("saved_model.experimental.read_fingerprint", v1=[])
-def read_fingerprint(export_dir: str) -> Fingerprint:
+def read_fingerprint(export_dir):
   """Reads the fingerprint of a SavedModel in `export_dir`.
 
   Returns a `tf.saved_model.experimental.Fingerprint` object that contains

@@ -52,11 +52,12 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_KERNELS_BATCHING_UTIL_PERIODIC_FUNCTION_H_
 #define TENSORFLOW_CORE_KERNELS_BATCHING_UTIL_PERIODIC_FUNCTION_H_
 
+#include "tensorflow/core/kernels/batching_util/periodic_function.h"
+
 #include <functional>
 #include <memory>
 #include <string>
 
-#include "absl/functional/any_invocable.h"
 #include "tensorflow/core/lib/core/notification.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/macros.h"
@@ -96,8 +97,8 @@ class PeriodicFunction {
   };
 
   // Also starts the background thread which will be calling the function.
-  PeriodicFunction(absl::AnyInvocable<void()> function, int64_t interval_micros,
-                   const Options& options = Options());
+  PeriodicFunction(const std::function<void()>& function,
+                   int64_t interval_micros, const Options& options = Options());
 
   ~PeriodicFunction();
 
@@ -110,7 +111,7 @@ class PeriodicFunction {
   // (Blocking.) Loops forever calling "function_" every "interval_micros_".
   void RunLoop(int64_t start);
 
-  absl::AnyInvocable<void()> function_;   // Actual client function
+  const std::function<void()> function_;  // Actual client function
   const int64_t interval_micros_;         // Interval between calls.
   const Options options_;
 
@@ -120,8 +121,7 @@ class PeriodicFunction {
   // Thread for running "function_"
   std::unique_ptr<Thread> thread_ = nullptr;
 
-  PeriodicFunction(const PeriodicFunction&) = delete;
-  void operator=(const PeriodicFunction&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(PeriodicFunction);
 };
 
 }  // namespace serving

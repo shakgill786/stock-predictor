@@ -16,7 +16,6 @@ namespace mlir {
 class Pass;
 
 #define GEN_PASS_DECL_CONVERTFUNCTOLLVMPASS
-#define GEN_PASS_DECL_SETLLVMMODULEDATALAYOUTPASS
 #include "mlir/Conversion/Passes.h.inc"
 
 } // namespace mlir

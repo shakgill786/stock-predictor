@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_PLATFORM_NET_H_
 #define TENSORFLOW_CORE_PLATFORM_NET_H_
 
-#include "tsl/platform/net.h"
+#include "tensorflow/tsl/platform/net.h"
 
 namespace tensorflow {
 namespace internal {

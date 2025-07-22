@@ -9,10 +9,12 @@ from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_percentage_error
 from prophet import Prophet
 from statsmodels.tsa.arima.model import ARIMA
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
 import plotly.graph_objects as go
+
 
 # --- Streamlit config ---
 st.set_page_config(page_title="📈 Stock & Crypto Predictor", layout="wide")

@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Exception types for TensorFlow errors.
-
-API docstring: tensorflow.errors
-"""
+"""Exception types for TensorFlow errors."""
 
 # pylint: disable=unused-import
 from tensorflow.python.framework import errors_impl as _impl
@@ -24,3 +21,4 @@ from tensorflow.python.framework import errors_impl as _impl
 # pylint: disable=wildcard-import
 from tensorflow.python.framework.errors_impl import *
 # pylint: enable=wildcard-import
+

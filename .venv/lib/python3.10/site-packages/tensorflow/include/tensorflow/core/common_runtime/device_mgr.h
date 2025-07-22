@@ -56,8 +56,7 @@ class DeviceMgr {
 
   // Assigns *device with pointer to Device of the given name.
   // Accepts either a full device name, or just the replica-local suffix.
-  virtual absl::Status LookupDevice(absl::string_view name,
-                                    Device** device) const = 0;
+  virtual Status LookupDevice(StringPiece name, Device** device) const = 0;
 
   // Check if the current device manager contains device with the given
   // incarnation ID. Looking up by incarnation IDs because they are randomly
@@ -66,7 +65,7 @@ class DeviceMgr {
 
   // Clears given containers of all devices if 'container' is
   // non-empty. Otherwise, clears default containers of all devices.
-  virtual void ClearContainers(absl::Span<const string> containers) const = 0;
+  virtual void ClearContainers(gtl::ArraySlice<string> containers) const = 0;
 
   virtual int NumDeviceType(const string& type) const = 0;
 
@@ -76,8 +75,7 @@ class DeviceMgr {
   // nullptr.
   virtual Device* HostCPU() const = 0;
 
-  DeviceMgr(const DeviceMgr&) = delete;
-  void operator=(const DeviceMgr&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DeviceMgr);
 };
 
 
@@ -101,26 +99,25 @@ class DynamicDeviceMgr : public DeviceMgr {
   std::vector<Device*> ListDevices() const override;
   string DebugString() const override;
   string DeviceMappingString() const override;
-  absl::Status LookupDevice(absl::string_view name,
-                            Device** device) const override;
+  Status LookupDevice(StringPiece name, Device** device) const override;
   bool ContainsDevice(int64_t device_incarnation) const override;
-  void ClearContainers(absl::Span<const string> containers) const override;
+  void ClearContainers(gtl::ArraySlice<string> containers) const override;
   int NumDeviceType(const string& type) const override;
   int NumDevices() const override;
   Device* HostCPU() const override;
 
   // Add devices to device manager. Returns error for repeated device names.
-  absl::Status AddDevices(std::vector<std::unique_ptr<Device>> devices);
+  Status AddDevices(std::vector<std::unique_ptr<Device>> devices);
 
   // Remove devices from device manager.
   // Returns error for non-existing devices or if the HostCPU() device is in the
   // input list. If an error is returned, the device list is not modified.
-  absl::Status RemoveDevices(const std::vector<Device*>& devices);
+  Status RemoveDevices(const std::vector<Device*>& devices);
 
   // Remove devices from device manager by their names. Returns error for
   // non-existing devices or if the HostCPU() device is given in the input list.
   // If an error is returned, the device list is not modified.
-  absl::Status RemoveDevicesByName(const std::vector<string>& device_names);
+  Status RemoveDevicesByName(const std::vector<string>& device_names);
 
  private:
   mutable mutex devices_mu_;
@@ -168,8 +165,7 @@ class DynamicDeviceMgr : public DeviceMgr {
   // buffer only for that purpose.
   DeviceCircularBuffer stale_devices_ TF_GUARDED_BY(devices_mu_);
 
-  DynamicDeviceMgr(const DynamicDeviceMgr&) = delete;
-  void operator=(const DynamicDeviceMgr&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DynamicDeviceMgr);
 };
 
 // TODO(b/183966398): Remove StaticDeviceMgr since there's no usage.

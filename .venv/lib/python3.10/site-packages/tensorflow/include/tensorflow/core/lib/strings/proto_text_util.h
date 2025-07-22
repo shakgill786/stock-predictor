@@ -85,7 +85,8 @@ class ProtoTextOutput {
 
   // Appends a string value, like my_field: "abc123".
   void AppendString(const char field_name[], const string& value) {
-    AppendFieldAndValue(field_name, StrCat("\"", absl::CEscape(value), "\""));
+    AppendFieldAndValue(
+        field_name, StrCat("\"", ::tensorflow::str_util::CEscape(value), "\""));
   }
 
   // Appends a string value, like my_field: "abc123", but only if value is not
@@ -100,8 +101,7 @@ class ProtoTextOutput {
   }
 
  private:
-  void AppendFieldAndValue(const char field_name[],
-                           absl::string_view value_text) {
+  void AppendFieldAndValue(const char field_name[], StringPiece value_text) {
     absl::StrAppend(output_, level_empty_ ? "" : field_separator_, indent_,
                     field_name, kColonSeparator, value_text);
     level_empty_ = false;
@@ -116,8 +116,7 @@ class ProtoTextOutput {
   // current deepest level of nesting.
   bool level_empty_ = true;
 
-  ProtoTextOutput(const ProtoTextOutput&) = delete;
-  void operator=(const ProtoTextOutput&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(ProtoTextOutput);
 };
 
 inline void ProtoSpaceAndComments(Scanner* scanner) {
@@ -133,7 +132,7 @@ inline void ProtoSpaceAndComments(Scanner* scanner) {
 // failed.
 template <typename T>
 bool ProtoParseNumericFromScanner(Scanner* scanner, T* value) {
-  absl::string_view numeric_str;
+  StringPiece numeric_str;
   scanner->RestartCapture();
   if (!scanner->Many(Scanner::LETTER_DIGIT_DOT_PLUS_MINUS)
            .GetResult(nullptr, &numeric_str)) {

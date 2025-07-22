@@ -20,14 +20,13 @@ limitations under the License.
 #include <optional>
 #include <vector>
 
-#include "xla/tsl/profiler/utils/xplane_utils.h"
+#include "tensorflow/tsl/profiler/utils/xplane_utils.h"
 
 namespace tensorflow {
 namespace profiler {
 
 using tsl::profiler::AddFlowsToXplane;               // NOLINT
 using tsl::profiler::AggregateXPlane;                // NOLINT
-using tsl::profiler::FindLinesWithId;                // NOLINT
 using tsl::profiler::FindLineWithId;                 // NOLINT
 using tsl::profiler::FindLineWithName;               // NOLINT
 using tsl::profiler::FindMutablePlanes;              // NOLINT

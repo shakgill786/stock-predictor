@@ -43,7 +43,7 @@ class QueueOp : public ResourceOpKernel<QueueInterface> {
   DataTypeVector component_types_;
 
  private:
-  absl::Status VerifyResource(QueueInterface* queue) override;
+  Status VerifyResource(QueueInterface* queue) override;
 };
 
 class TypedQueueOp : public QueueOp {
@@ -52,7 +52,7 @@ class TypedQueueOp : public QueueOp {
 
  protected:
   template <typename TypedQueue>
-  absl::Status CreateTypedQueue(TypedQueue* queue, QueueInterface** ret) {
+  Status CreateTypedQueue(TypedQueue* queue, QueueInterface** ret) {
     if (queue == nullptr) {
       return errors::ResourceExhausted("Failed to allocate queue.");
     }
@@ -100,8 +100,7 @@ class EnqueueOp : public QueueAccessOpKernel {
                     DoneCallback callback) override;
 
  private:
-  EnqueueOp(const EnqueueOp&) = delete;
-  void operator=(const EnqueueOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(EnqueueOp);
 };
 
 // Defines an EnqueueManyOp, the execution of which slices each
@@ -128,8 +127,7 @@ class EnqueueManyOp : public QueueAccessOpKernel {
   ~EnqueueManyOp() override;
 
  private:
-  EnqueueManyOp(const EnqueueManyOp&) = delete;
-  void operator=(const EnqueueManyOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(EnqueueManyOp);
 };
 
 // Defines a DequeueOp, the execution of which dequeues a tuple of
@@ -150,8 +148,7 @@ class DequeueOp : public QueueAccessOpKernel {
   ~DequeueOp() override;
 
  private:
-  DequeueOp(const DequeueOp&) = delete;
-  void operator=(const DequeueOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DequeueOp);
 };
 
 // Defines a DequeueManyOp, the execution of which concatenates the
@@ -176,8 +173,7 @@ class DequeueManyOp : public QueueAccessOpKernel {
   ~DequeueManyOp() override;
 
  private:
-  DequeueManyOp(const DequeueManyOp&) = delete;
-  void operator=(const DequeueManyOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DequeueManyOp);
 };
 
 // Defines a DequeueUpToOp, the execution of which concatenates the
@@ -220,8 +216,7 @@ class DequeueUpToOp : public QueueAccessOpKernel {
   ~DequeueUpToOp() override;
 
  private:
-  DequeueUpToOp(const DequeueUpToOp&) = delete;
-  void operator=(const DequeueUpToOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DequeueUpToOp);
 };
 
 // Defines a QueueCloseOp, which closes the given Queue. Closing a
@@ -238,8 +233,7 @@ class QueueCloseOp : public QueueOpKernel {
 
  private:
   bool cancel_pending_enqueues_;
-  QueueCloseOp(const QueueCloseOp&) = delete;
-  void operator=(const QueueCloseOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(QueueCloseOp);
 };
 
 // Defines a QueueSizeOp, which computes the number of elements in the
@@ -257,8 +251,7 @@ class QueueSizeOp : public QueueOpKernel {
                     DoneCallback callback) override;
 
  private:
-  QueueSizeOp(const QueueSizeOp&) = delete;
-  void operator=(const QueueSizeOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(QueueSizeOp);
 };
 
 class QueueIsClosedOp : public QueueOpKernel {
@@ -270,8 +263,7 @@ class QueueIsClosedOp : public QueueOpKernel {
                     DoneCallback callback) override;
 
  private:
-  QueueIsClosedOp(const QueueIsClosedOp&) = delete;
-  void operator=(const QueueIsClosedOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(QueueIsClosedOp);
 };
 
 }  // namespace tensorflow

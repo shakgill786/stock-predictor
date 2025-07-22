@@ -49,7 +49,7 @@ class GetElementAtIndexOp : public AsyncOpKernel {
   }
 
  protected:
-  absl::Status DoCompute(OpKernelContext* ctx);
+  Status DoCompute(OpKernelContext* ctx);
 
  private:
   UnboundedThreadPool unbounded_threadpool_;

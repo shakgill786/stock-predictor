@@ -39,7 +39,7 @@ class Master {
   virtual ~Master();
 
   // Convenient typedef for a closure passing a Status.
-  typedef std::function<void(const absl::Status&)> MyClosure;
+  typedef std::function<void(const Status&)> MyClosure;
 
   void CreateSession(const CreateSessionRequest* req,
                      CreateSessionResponse* resp, MyClosure done);
@@ -109,8 +109,7 @@ class Master {
   // on the returned MasterSession if not null.
   MasterSession* FindMasterSession(const string& handle);
 
-  Master(const Master&) = delete;
-  void operator=(const Master&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(Master);
 };
 
 }  // namespace tensorflow

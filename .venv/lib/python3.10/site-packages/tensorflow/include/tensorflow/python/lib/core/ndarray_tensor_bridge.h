@@ -17,7 +17,7 @@ limitations under the License.
 
 // Must be included first
 // clang-format off
-#include "xla/tsl/python/lib/core/numpy.h" //NOLINT
+#include "tensorflow/tsl/python/lib/core/numpy.h" //NOLINT
 // clang-format on
 
 #include <functional>
@@ -41,13 +41,12 @@ void ClearDecrefCache();
 // in data. The array does not own the memory, and destructor will be called to
 // release it. If the status is not ok the caller is responsible for releasing
 // the memory.
-absl::Status ArrayFromMemory(int dim_size, npy_intp* dims, void* data,
-                             DataType dtype, std::function<void()> destructor,
-                             PyObject** result);
+Status ArrayFromMemory(int dim_size, npy_intp* dims, void* data, DataType dtype,
+                       std::function<void()> destructor, PyObject** result);
 
 // Converts TF_DataType to the corresponding numpy type.
-absl::Status TF_DataType_to_PyArray_TYPE(TF_DataType tf_datatype,
-                                         int* out_pyarray_type);
+Status TF_DataType_to_PyArray_TYPE(TF_DataType tf_datatype,
+                                   int* out_pyarray_type);
 
 }  // namespace tensorflow
 

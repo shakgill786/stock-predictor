@@ -37,8 +37,7 @@ limitations under the License.
 #include "tensorflow/compiler/jit/tf_graph_to_hlo_compiler.h"
 #include "tensorflow/compiler/jit/xla_compile_util.h"
 #include "tensorflow/compiler/tf2xla/xla_compiler.h"
-#include "xla/client/local_client.h"
-#include "tensorflow/core/framework/metrics.h"
+#include "tensorflow/compiler/xla/client/local_client.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/lib/core/threadpool.h"
 #include "tensorflow/core/platform/mutex.h"
@@ -99,7 +98,7 @@ class DeviceCompiler : public ResourceBase {
   // `ExecutableType` and sets `out_executable` to point to it. The
   // resulting executable pointer may be null if the computation has no
   // non-constant outputs.
-  absl::Status CompileIfNeeded(
+  Status CompileIfNeeded(
       const XlaCompiler::Options& options, const NameAttrList& function,
       const std::vector<XlaCompiler::Argument>& args,
       const XlaCompiler::CompileOptions& compile_options,
@@ -108,7 +107,7 @@ class DeviceCompiler : public ResourceBase {
       ExecutableType** out_executable);
 
   // As above, but for a single op.
-  absl::Status CompileSingleOpIfNeeded(
+  Status CompileSingleOpIfNeeded(
       const XlaCompiler::Options& options,
       const std::vector<XlaCompiler::Argument>& args,
       const XlaCompiler::CompileOptions& compile_options, OpKernelContext* ctx,
@@ -131,7 +130,7 @@ class DeviceCompiler : public ResourceBase {
  private:
   // Common implementation of Compile and CompileSingleOp. The `OpKernelContext`
   // parameter is always null for the former.
-  absl::Status CompileImpl(
+  Status CompileImpl(
       const XlaCompiler::CompileOptions& compile_options,
       const XlaCompiler::Options& options, const NameAttrList& function,
       const std::vector<XlaCompiler::Argument>& args, CompileScope scope,
@@ -152,13 +151,13 @@ class DeviceCompiler : public ResourceBase {
       DeviceCompilationProfiler* profiler, mutex* mu)
       TF_EXCLUSIVE_LOCKS_REQUIRED(*mu);
 
-  absl::Status CompileAsynchronous(
-      const DeviceCompilationClusterSignature& sig,
-      const XlaCompiler::CompileOptions& compile_options,
-      const XlaCompiler::Options& options,
-      const std::vector<XlaCompiler::Argument>& args,
-      const NameAttrList& function, CompileScope scope, OpKernelContext* ctx,
-      DeviceCompilationProfiler* profiler);
+  Status CompileAsynchronous(const DeviceCompilationClusterSignature& sig,
+                             const XlaCompiler::CompileOptions& compile_options,
+                             const XlaCompiler::Options& options,
+                             const std::vector<XlaCompiler::Argument>& args,
+                             const NameAttrList& function, CompileScope scope,
+                             OpKernelContext* ctx,
+                             DeviceCompilationProfiler* profiler);
 
   std::unique_ptr<DeviceExecutablePersistor<ExecutableType, ClientType>>
       persistor_;
@@ -174,8 +173,7 @@ class DeviceCompiler : public ResourceBase {
                       DeviceCompilationClusterSignature::Hash>
       cluster_mutexes_ TF_GUARDED_BY(cluster_mutexes_mu_);
 
-  DeviceCompiler(const DeviceCompiler&) = delete;
-  void operator=(const DeviceCompiler&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DeviceCompiler);
 };
 
 namespace device_compiler_internal {
@@ -191,8 +189,8 @@ inline void LogOnceXlaCompiledFirstCluster() {
 }
 
 template <typename ExecutableType>
-inline absl::Status EligibleToPersist(DeviceCompileState compile_state,
-                                      const ExecutableType* executable) {
+inline Status EligibleToPersist(DeviceCompileState compile_state,
+                                const ExecutableType* executable) {
   if (compile_state != DeviceCompileState::kCompiled) {
     return errors::FailedPrecondition(
         "Cache entry to serialize is not compiled.");
@@ -201,7 +199,7 @@ inline absl::Status EligibleToPersist(DeviceCompileState compile_state,
     return errors::FailedPrecondition(
         "LocalExecutable not found for cache entry to serialize.");
   }
-  return absl::OkStatus();
+  return OkStatus();
 }
 }  // namespace device_compiler_internal
 
@@ -244,7 +242,7 @@ string DeviceCompiler<ExecutableType, ClientType>::DebugString() const {
 }
 
 template <typename ExecutableType, typename ClientType>
-absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileIfNeeded(
+Status DeviceCompiler<ExecutableType, ClientType>::CompileIfNeeded(
     const XlaCompiler::Options& options, const NameAttrList& function,
     const std::vector<XlaCompiler::Argument>& args,
     const XlaCompiler::CompileOptions& compile_options,
@@ -257,8 +255,7 @@ absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileIfNeeded(
 }
 
 template <typename ExecutableType, typename ClientType>
-absl::Status
-DeviceCompiler<ExecutableType, ClientType>::CompileSingleOpIfNeeded(
+Status DeviceCompiler<ExecutableType, ClientType>::CompileSingleOpIfNeeded(
     const XlaCompiler::Options& options,
     const std::vector<XlaCompiler::Argument>& args,
     const XlaCompiler::CompileOptions& compile_options, OpKernelContext* ctx,
@@ -319,7 +316,6 @@ DeviceCompiler<ExecutableType, ClientType>::CompileStrict(
     cache_value.compilation_status = loaded_executable->status();
     if (loaded_executable->ok()) {
       out_executable = *std::move(*loaded_executable);
-      metrics::UpdatePersistentCacheLoadCount();
     }
   } else {
     auto built_executable =
@@ -351,7 +347,7 @@ DeviceCompiler<ExecutableType, ClientType>::CompileStrict(
 }
 
 template <typename ExecutableType, typename ClientType>
-absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileAsynchronous(
+Status DeviceCompiler<ExecutableType, ClientType>::CompileAsynchronous(
     const DeviceCompilationClusterSignature& signature,
     const XlaCompiler::CompileOptions& compile_options,
     const XlaCompiler::Options& options,
@@ -392,11 +388,11 @@ absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileAsynchronous(
                     std::nullopt);
     }
   });
-  return absl::OkStatus();
+  return OkStatus();
 }
 
 template <typename ExecutableType, typename ClientType>
-absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileImpl(
+Status DeviceCompiler<ExecutableType, ClientType>::CompileImpl(
     const XlaCompiler::CompileOptions& compile_options,
     const XlaCompiler::Options& options, const NameAttrList& function,
     const std::vector<XlaCompiler::Argument>& args, CompileScope scope,
@@ -470,14 +466,14 @@ absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileImpl(
     if (!profiler->ShouldCompileCluster(function, compile_mode,
                                         current_request_count)) {
       VLOG(2) << "Not compiling for signature: " << human_signature;
-      return absl::OkStatus();
+      return OkStatus();
     } else if (compile_mode == DeviceCompileMode::kAsync) {
       VLOG(2) << "Queueing asynchronous compilation for signature: "
               << human_signature;
       TF_RETURN_IF_ERROR(CompileAsynchronous(signature, compile_options,
                                              options, args, function, scope,
                                              ctx, profiler));
-      return absl::OkStatus();
+      return OkStatus();
     } else {
       VLOG(2) << "Instantly compiling for signature: " << human_signature;
       TF_ASSIGN_OR_RETURN(
@@ -488,7 +484,7 @@ absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileImpl(
   } else if (state == DeviceCompileState::kCompiling) {
     VLOG(2) << "Ongoing asynchronous compilation for signature: "
             << human_signature;
-    return absl::OkStatus();
+    return OkStatus();
   } else if (state == DeviceCompileState::kCompiled) {
     VLOG(2) << "Already Compiled for signature: " << human_signature;
   }
@@ -496,7 +492,7 @@ absl::Status DeviceCompiler<ExecutableType, ClientType>::CompileImpl(
   TF_RETURN_IF_ERROR(cache_value.compilation_status);
   *out_compilation_result = cache_value.compilation_result;
   *out_executable = cache_value.executable;
-  return absl::OkStatus();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

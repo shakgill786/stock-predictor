@@ -56,7 +56,6 @@ from tensorflow.python.ops.ragged import ragged_tensor_value
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.types import data as data_types
 from tensorflow.python.util import nest
-from tensorflow.python.util import numpy_compat
 
 
 def is_composite_or_composite_value(tensor):
@@ -596,9 +595,9 @@ def standardize_input_data(data,
                        'for each key in: ' + str(names))
   elif isinstance(data, (list, tuple)):
     if isinstance(data[0], (list, tuple)):
-      data = [numpy_compat.np_asarray(d) for d in data]
+      data = [np.asarray(d) for d in data]
     elif len(names) == 1 and isinstance(data[0], (float, int)):
-      data = [numpy_compat.np_asarray(data)]
+      data = [np.asarray(data)]
     else:
       data = [
           x.values if x.__class__.__name__ == 'DataFrame' else x for x in data
@@ -634,7 +633,7 @@ def standardize_input_data(data,
                       ': data should be a Numpy array, or list/dict of '
                       'Numpy arrays. Found: ' + str(data)[:200] + '...')
     elif len(names) == 1:
-      data = [numpy_compat.np_asarray(data)]
+      data = [np.asarray(data)]
 
   # Check shapes compatibility.
   if shapes:
@@ -1056,7 +1055,7 @@ def standardize_weights(y,
         elif y.shape[1] == 1:
           y_classes = np.reshape(y, y.shape[0])
 
-      class_sample_weight = numpy_compat.np_asarray(
+      class_sample_weight = np.asarray(
           [class_weight[cls] for cls in y_classes if cls in class_weight])
 
       if len(class_sample_weight) != len(y_classes):
@@ -1757,7 +1756,7 @@ class ModelInputs(object):
     # method first, since it modifies in place.
     for i, (k, v) in enumerate(zip(self._input_names, self._flattened_inputs)):
       if isinstance(v, (list, float, int)):
-        v = numpy_compat.np_asarray(v)
+        v = np.asarray(v)
         if v.ndim == 1:
           v = np.expand_dims(v, 1)
 

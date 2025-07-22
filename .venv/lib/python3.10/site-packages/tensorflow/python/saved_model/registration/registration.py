@@ -22,8 +22,6 @@ This API is approved for TF internal use only.
 import collections
 import re
 
-from absl import logging
-
 from tensorflow.python.util import tf_inspect
 
 
@@ -350,14 +348,7 @@ def get_restore_function(registered_name):
 
 def get_strict_predicate_restore(registered_name):
   """Returns if the registered restore can be ignored if the predicate fails."""
-  try:
-    return _saver_registry.name_lookup(registered_name)[2]
-  except LookupError:
-    logging.warning(
-        "Registered saver %s was not found when restoring checkpoints.",
-        registered_name,
-    )
-    return False  # Return false as the default if the name isn't registered.
+  return _saver_registry.name_lookup(registered_name)[2]
 
 
 def validate_restore_function(trackable, registered_name):

@@ -18,7 +18,7 @@ limitations under the License.
 
 #define EIGEN_USE_THREADS
 
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_types.h"
 
@@ -66,15 +66,14 @@ struct DenseUpdate<CPUDevice, T, ASSIGN> {
 }  // end namespace functor
 
 template <typename Device>
-absl::Status VariantCopyFn(OpKernelContext* context, const Tensor& from,
-                           Tensor* to);
+Status VariantCopyFn(OpKernelContext* context, const Tensor& from, Tensor* to);
 
 template <>
-absl::Status VariantCopyFn<CPUDevice>(OpKernelContext* context,
-                                      const Tensor& from, Tensor* to);
+Status VariantCopyFn<CPUDevice>(OpKernelContext* context, const Tensor& from,
+                                Tensor* to);
 template <>
-absl::Status VariantCopyFn<GPUDevice>(OpKernelContext* context,
-                                      const Tensor& from, Tensor* to);
+Status VariantCopyFn<GPUDevice>(OpKernelContext* context, const Tensor& from,
+                                Tensor* to);
 
 }  // end namespace tensorflow
 

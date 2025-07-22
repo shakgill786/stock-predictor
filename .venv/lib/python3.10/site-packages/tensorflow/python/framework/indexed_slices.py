@@ -139,7 +139,7 @@ class IndexedSlices(
     return self.values.device
 
   @property
-  def op(self) -> ops.Operation:
+  def op(self):
     """The `Operation` that produces `values` as an output."""
     return self.values.op
 
@@ -149,7 +149,7 @@ class IndexedSlices(
     return self.values.dtype
 
   @property
-  def graph(self) -> ops.Graph:
+  def graph(self):
     """The `Graph` that contains the values, indices, and shape tensors."""
     return self._values.graph
 

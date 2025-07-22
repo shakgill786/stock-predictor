@@ -23,7 +23,7 @@ limitations under the License.
 // improve compilation times.
 #include <algorithm>
 
-#include "Eigen/SVD"  // from @eigen_archive
+#include "third_party/eigen3/Eigen/SVD"
 #include "tensorflow/core/framework/kernel_def_builder.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -126,8 +126,7 @@ class SvdOp : public LinearAlgebraOp<Scalar> {
   bool compute_uv_;
   bool full_matrices_;
 
-  SvdOp(const SvdOp&) = delete;
-  void operator=(const SvdOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(SvdOp);
 };
 
 }  // namespace tensorflow

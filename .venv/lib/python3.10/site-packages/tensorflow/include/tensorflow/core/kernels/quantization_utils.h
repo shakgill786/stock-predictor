@@ -32,7 +32,7 @@ limitations under the License.
 
 #include <array>
 
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
 #include "public/gemmlowp.h"
 #include "tensorflow/core/framework/tensor.h"
@@ -943,8 +943,7 @@ class TensorflowGemmlowpWorkersPool {
   // The BlockingCounter used to wait for the workers.
   gemmlowp::BlockingCounter counter_to_decrement_when_ready_;
 
-  TensorflowGemmlowpWorkersPool(const TensorflowGemmlowpWorkersPool&) = delete;
-  void operator=(const TensorflowGemmlowpWorkersPool&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(TensorflowGemmlowpWorkersPool);
 };
 
 class TensorflowGemmContext : public gemmlowp::MultiThreadGemmContextBase {
@@ -959,8 +958,7 @@ class TensorflowGemmContext : public gemmlowp::MultiThreadGemmContextBase {
  private:
   TensorflowGemmlowpWorkersPool workers_pool_;
 
-  TensorflowGemmContext(const TensorflowGemmContext&) = delete;
-  void operator=(const TensorflowGemmContext&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(TensorflowGemmContext);
 };
 
 }  // namespace tensorflow

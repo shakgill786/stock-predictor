@@ -16,33 +16,37 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_KERNELS_BATCH_KERNEL_TEST_UTIL_H_
 #define TENSORFLOW_CORE_KERNELS_BATCH_KERNEL_TEST_UTIL_H_
 
-#include <gtest/gtest.h>
+#include "tensorflow/core/framework/node_def_builder.h"
 #include "tensorflow/core/kernels/batch_kernels.h"
 #include "tensorflow/core/kernels/ops_testutil.h"
-#include "tensorflow/core/platform/status.h"
+#include "tensorflow/core/kernels/ops_util.h"
+#include "tensorflow/core/lib/core/status_test_util.h"
+#include "tensorflow/core/platform/env.h"
+#include "tensorflow/core/platform/test.h"
 
 namespace tensorflow {
-namespace test_util {
-
-// A test util for accessing private members of `BatchFunctionKernel`.
+namespace internal {
 class BatchFunctionKernelTestAccess {
  public:
-  explicit BatchFunctionKernelTestAccess(const BatchFunctionKernel* kernel);
+  explicit BatchFunctionKernelTestAccess(BatchFunctionKernel* kernel);
 
   bool enable_adaptive_batch_threads() const;
 
  private:
-  const BatchFunctionKernel* const kernel_;
+  BatchFunctionKernel* const kernel_;
 };
+
+}  // namespace internal
 
 class BatchFunctionKernelTestBase : public OpsTestBase,
                                     public ::testing::WithParamInterface<bool> {
  public:
+  bool enable_adaptive_scheduler() const;
+
   // Init test fixture with a batch kernel instance.
-  absl::Status Init(bool enable_adaptive_scheduler);
+  Status Init();
 };
 
-}  // namespace test_util
 }  // namespace tensorflow
 
 #endif  // TENSORFLOW_CORE_KERNELS_BATCH_KERNEL_TEST_UTIL_H_

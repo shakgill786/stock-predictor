@@ -18,7 +18,7 @@ limitations under the License.
 #include <string>
 
 #include "absl/types/optional.h"
-#include "xla/xla_data.pb.h"
+#include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/framework/node_def_util.h"
 #include "tensorflow/core/platform/statusor.h"
 
@@ -28,7 +28,7 @@ namespace tensorflow {
 //
 // Return an InvalidArgument error if some attributes are present but
 // cannot be parsed.
-absl::StatusOr<std::optional<xla::FrontendAttributes>>
+StatusOr<std::optional<xla::FrontendAttributes>>
 GetFrontendAttributesFromAttrSlice(const AttrSlice& attrs);
 
 }  // namespace tensorflow

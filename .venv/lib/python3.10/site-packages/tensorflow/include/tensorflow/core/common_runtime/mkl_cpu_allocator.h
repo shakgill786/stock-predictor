@@ -57,8 +57,7 @@ class MklSmallSizeAllocator : public Allocator {
   }
   ~MklSmallSizeAllocator() override {}
 
-  MklSmallSizeAllocator(const MklSmallSizeAllocator&) = delete;
-  void operator=(const MklSmallSizeAllocator&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(MklSmallSizeAllocator);
 
   inline string Name() override { return name_; }
 
@@ -320,8 +319,7 @@ class MklCPUAllocator : public Allocator {
   static constexpr const size_t kSmallAllocationsThreshold = 262144;
 
   // Prevent copying and assignment
-  MklCPUAllocator(const MklCPUAllocator&) = delete;
-  void operator=(const MklCPUAllocator&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(MklCPUAllocator);
 };
 
 }  // namespace tensorflow

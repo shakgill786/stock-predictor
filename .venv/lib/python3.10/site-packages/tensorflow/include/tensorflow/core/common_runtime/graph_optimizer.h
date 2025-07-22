@@ -80,8 +80,7 @@ class GraphOptimizer {
  private:
   OptimizerOptions opts_;
 
-  GraphOptimizer(const GraphOptimizer&) = delete;
-  void operator=(const GraphOptimizer&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(GraphOptimizer);
 };
 
 // Applies graph rewrite optimization such as inlining, dead code

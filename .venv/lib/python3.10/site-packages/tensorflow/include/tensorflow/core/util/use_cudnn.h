@@ -20,7 +20,7 @@ limitations under the License.
 
 #include <cstdint>
 
-#include "xla/tsl/util/use_cudnn.h"
+#include "tensorflow/tsl/util/use_cudnn.h"
 
 namespace tensorflow {
 

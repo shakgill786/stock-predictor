@@ -13,10 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""System configuration library.
-
-API docstring: tensorflow.sysconfig
-"""
+"""System configuration library."""
 import os.path as _os_path
 import platform as _platform
 

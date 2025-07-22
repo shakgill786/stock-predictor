@@ -55,7 +55,7 @@ class KernelDefBuilder {
   // what the Op allows).
   // Returns *this.
   KernelDefBuilder& TypeConstraint(const char* attr_name,
-                                   absl::Span<const DataType> allowed);
+                                   gtl::ArraySlice<DataType> allowed);
 
   // Like TypeConstraint but supports just a single type.
   KernelDefBuilder& TypeConstraint(const char* attr_name, DataType allowed);
@@ -86,8 +86,7 @@ class KernelDefBuilder {
  private:
   KernelDef* kernel_def_;
 
-  KernelDefBuilder(const KernelDefBuilder&) = delete;
-  void operator=(const KernelDefBuilder&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(KernelDefBuilder);
 };
 
 // IMPLEMENTATION

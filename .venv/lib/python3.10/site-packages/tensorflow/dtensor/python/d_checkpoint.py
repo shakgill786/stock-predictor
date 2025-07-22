@@ -399,8 +399,7 @@ class DTrackableSaver(util.TrackableSaver):
     load_status = util.CheckpointLoadStatus(
         checkpoint,
         graph_view=self._graph_view,
-        feed_dict=file_prefix_feed_dict,
-        options=options)
+        feed_dict=file_prefix_feed_dict)
     return load_status
 
 

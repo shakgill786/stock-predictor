@@ -35,8 +35,7 @@ class StackOp : public OpKernel {
   DataType elem_type_;
   string stack_name_;
 
-  StackOp(const StackOp&) = delete;
-  void operator=(const StackOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(StackOp);
 };
 
 class StackPushOp : public AsyncOpKernel {

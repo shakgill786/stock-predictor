@@ -30,7 +30,6 @@ limitations under the License.
 #if GOOGLE_CUDA
 #include "third_party/nccl/nccl.h"
 #elif TENSORFLOW_USE_ROCM
-#include "rocm/rocm_config.h"
 #if (TF_ROCM_VERSION >= 50200)
 #include "rocm/include/rccl/rccl.h"
 #else
@@ -272,8 +271,7 @@ class NcclManager {
 
   Status status_ TF_GUARDED_BY(mu_);
 
-  NcclManager(const NcclManager&) = delete;
-  void operator=(const NcclManager&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(NcclManager);
 };
 
 }  // namespace tensorflow

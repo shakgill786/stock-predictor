@@ -16,13 +16,10 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_GRAPPLER_OPTIMIZERS_DATA_MAP_FUSION_H_
 #define TENSORFLOW_CORE_GRAPPLER_OPTIMIZERS_DATA_MAP_FUSION_H_
 
-#include "tensorflow/core/framework/attr_value.pb.h"
 #include "tensorflow/core/grappler/optimizers/data/optimizer_base.h"
 
 namespace tensorflow {
 namespace grappler {
-
-constexpr char kAutotune[] = "autotune";
 
 // This optimization fuses map transformations by merging their map functions.
 class MapFusion : public TFDataOptimizerBase {
@@ -34,29 +31,14 @@ class MapFusion : public TFDataOptimizerBase {
 
   bool UsesFunctionLibrary() const override { return false; }
 
-  absl::Status Init(
+  Status Init(
       const tensorflow::RewriterConfig_CustomGraphOptimizer* config) override {
-    if (!config) return absl::OkStatus();
-
-    const string& autotune = config->parameter_map().at(kAutotune).s();
-    if (autotune == "true") {
-      autotune_ = true;
-    } else if (autotune == "false") {
-      autotune_ = false;
-    } else {
-      return errors::InvalidArgument("Received an invalid value for parameter ",
-                                     kAutotune, ": ", autotune);
-    }
-    return absl::OkStatus();
+    return OkStatus();
   }
 
-  absl::Status OptimizeAndCollectStats(Cluster* cluster,
-                                       const GrapplerItem& item,
-                                       GraphDef* output,
-                                       OptimizationStats* stats) override;
-
- private:
-  bool autotune_ = true;
+  Status OptimizeAndCollectStats(Cluster* cluster, const GrapplerItem& item,
+                                 GraphDef* output,
+                                 OptimizationStats* stats) override;
 };
 
 }  // namespace grappler

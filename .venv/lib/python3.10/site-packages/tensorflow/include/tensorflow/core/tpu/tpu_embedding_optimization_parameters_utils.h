@@ -16,14 +16,11 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_TPU_TPU_EMBEDDING_OPTIMIZATION_PARAMETERS_UTILS_H_
 #define TENSORFLOW_CORE_TPU_TPU_EMBEDDING_OPTIMIZATION_PARAMETERS_UTILS_H_
 
-#include <cstdint>
 #include <string>
-#include <vector>
 
 #include "absl/base/casts.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/status/status.h"
-#include "tensorflow/core/framework/op_def_builder.h"
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/protobuf/tpu/optimization_parameters.pb.h"
 
 namespace tensorflow {
@@ -32,10 +29,10 @@ namespace tpu {
 using OptimizationAlgorithm = OptimizationParameters::ParametersCase;
 
 // Returns the name of the optimization algorithm.
-std::string GetOptimizationAlgorithmName(OptimizationAlgorithm alg);
+string GetOptimizationAlgorithmName(OptimizationAlgorithm alg);
 
 // Returns a user-friendly name for the optimization algorithm.
-std::string GetOptimizationAlgorithmFriendlyName(OptimizationAlgorithm alg);
+string GetOptimizationAlgorithmFriendlyName(OptimizationAlgorithm alg);
 
 // Returns all supported optimization algorithms.
 std::vector<OptimizationAlgorithm> GetOptimizationAlgorithms();
@@ -51,44 +48,27 @@ enum class GradientAccumulationSupport {
 // Returns the number of optimization parameter vectors used by the optimization
 // algorithm, excluding the weights themselves and assuming no gradient
 // accumulation.
-absl::Status GetBaseAuxiliaryParameterCount(
-    const OptimizationParameters &params, int *count);
+Status GetBaseAuxiliaryParameterCount(const OptimizationParameters &params,
+                                      int *count);
 
 // Returns whether (and how) an optimization algorithm supports gradient
 // accumulation.
-absl::Status GetGradientAccumulationSupport(
-    const OptimizationParameters &params, GradientAccumulationSupport *support);
+Status GetGradientAccumulationSupport(const OptimizationParameters &params,
+                                      GradientAccumulationSupport *support);
 
 // Returns whether both the given set of optimization parameters has gradient
 // accumulation turned on and that the algorithm used supports it or should
 // ignore that setting. Returns an error if gradient accumulation is enabled and
 // the algorithm does not support it.
-absl::Status UseGradientAccumulation(const OptimizationParameters &params,
-                                     bool *use_gradient_accumulation);
+Status UseGradientAccumulation(const OptimizationParameters &params,
+                               bool *use_gradient_accumulation);
 
 // Returns the parameter specifications for the optimization algorithm (the main
 // parameters first, followed by any auxiliary parameters such as Adagrad
 // accumulators).
-absl::Status GetOptimizationAlgorithmStateVariables(
+Status GetOptimizationAlgorithmStateVariables(
     const OptimizationParameters &params,
     std::vector<StateVariableSpecification> *state_variables);
-
-// Returns the set of dynamic input tags used by the optimization algorithm.
-// This includes both dynamic learning rates and other hyperparameters (e.g.,
-// step counters for the frequency aware Adagrad optimizer).
-absl::flat_hash_set<int> GetOptimizerDynamicInputTags(
-    const OptimizationParameters &params);
-
-// Returns the set of dynamic hyperparameter tags used by the optimization
-// algorithm. This includes other hyperparameters used by the optimization
-// algorithm (e.g., step counters for the frequency aware Adagrad optimizer). It
-// excludes the dynamic learning rate tag.
-absl::flat_hash_set<int> GetOptimizerHyperParameterTags(
-    const OptimizationParameters &params);
-
-// Returns true if the optimization algorithm uses dynamic inputs in its
-// computation.
-bool UsesDynamicInputsInOptimizer(const OptimizationParameters &params);
 
 // Maximum value of auxiliary_parametery_count for any optimization algorithm.
 // This count is used by TPU embedding load/retrieve and needs to be independent
@@ -113,21 +93,21 @@ static constexpr int kMaxAuxiliaryParameterCount = 7;
 // gradient of zero from one that has been cleared after its gradients have
 // already been applied to the parameters and accumulators.
 inline float GradientAccumulatorInitialValue() {
-  return absl::bit_cast<float, uint32_t>(1);
+  return absl::bit_cast<float, uint32>(1);
 }
 
 // Generic shape function for per-optimization-algorithm load ops.
 class LoadOpShapeFunction {
  public:
   // Computes resulting shape and does parameter checking.
-  absl::Status operator()(shape_inference::InferenceContext *c) const;
+  Status operator()(shape_inference::InferenceContext *c) const;
 };
 
 // Generic shape function for per-optimization-algorithm retrieve ops.
 class RetrieveOpShapeFunction {
  public:
   // Computes resulting shape and does parameter checking.
-  absl::Status operator()(shape_inference::InferenceContext *c) const;
+  Status operator()(shape_inference::InferenceContext *c) const;
 };
 
 }  // namespace tpu

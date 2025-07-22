@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_JIT_RESOURCE_OPERATION_SAFETY_ANALYSIS_H_
 #define TENSORFLOW_COMPILER_JIT_RESOURCE_OPERATION_SAFETY_ANALYSIS_H_
 
-#include "xla/service/graphcycles/graphcycles.h"
+#include "tensorflow/compiler/xla/service/graphcycles/graphcycles.h"
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/graph/graph.h"
 
@@ -59,10 +59,9 @@ namespace tensorflow {
 //
 // If `resource_ops_to_ignore` is set then nodes for which it returns true are
 // ignored (we pretend these nodes are not resource operations).
-absl::Status ComputeIncompatibleResourceOperationPairs(
+Status ComputeIncompatibleResourceOperationPairs(
     const Graph& g, const FunctionLibraryDefinition* flib_def,
-    const std::function<absl::Status(const Node&, bool*)>&
-        resource_ops_to_ignore,
+    const std::function<Status(const Node&, bool*)>& resource_ops_to_ignore,
     std::vector<std::pair<int, int>>* result);
 }  // namespace tensorflow
 

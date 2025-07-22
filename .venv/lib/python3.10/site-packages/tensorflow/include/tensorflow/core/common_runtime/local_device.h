@@ -49,8 +49,7 @@ class LocalDevice : public Device {
 
   friend class test::Benchmark;
 
-  LocalDevice(const LocalDevice&) = delete;
-  void operator=(const LocalDevice&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(LocalDevice);
 };
 
 }  // namespace tensorflow

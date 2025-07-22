@@ -23,7 +23,7 @@ from tensorflow.python.ops import math_ops
 
 
 @ops.RegisterGradient("ResizeNearestNeighbor")
-def _ResizeNearestNeighborGrad(op: ops.Operation, grad):
+def _ResizeNearestNeighborGrad(op, grad):
   """The derivatives for nearest neighbor resizing.
 
   Args:
@@ -48,7 +48,7 @@ def _ResizeNearestNeighborGrad(op: ops.Operation, grad):
 
 
 @ops.RegisterGradient("ResizeBilinear")
-def _ResizeBilinearGrad(op: ops.Operation, grad):
+def _ResizeBilinearGrad(op, grad):
   """The derivatives for bilinear resizing.
 
   Args:
@@ -64,9 +64,6 @@ def _ResizeBilinearGrad(op: ops.Operation, grad):
       align_corners=op.get_attr("align_corners"),
       half_pixel_centers=op.get_attr("half_pixel_centers"))
   return [grad0, None]
-
-
-ops.NotDifferentiable("ResizeBilinearGrad")
 
 
 @ops.RegisterGradient("ScaleAndTranslate")
@@ -92,7 +89,7 @@ def _ScaleAndTranslateGrad(op, grad):
 
 
 @ops.RegisterGradient("ResizeBicubic")
-def _ResizeBicubicGrad(op: ops.Operation, grad):
+def _ResizeBicubicGrad(op, grad):
   """The derivatives for bicubic resizing.
 
   Args:
@@ -114,7 +111,7 @@ def _ResizeBicubicGrad(op: ops.Operation, grad):
 
 
 @ops.RegisterGradient("CropAndResize")
-def _CropAndResizeGrad(op: ops.Operation, grad):
+def _CropAndResizeGrad(op, grad):
   """The derivatives for crop_and_resize.
 
   We back-propagate to the image only when the input image tensor has floating
@@ -168,7 +165,7 @@ def _CustomReciprocal(x):
 
 
 @ops.RegisterGradient("RGBToHSV")
-def _RGBToHSVGrad(op: ops.Operation, grad):
+def _RGBToHSVGrad(op, grad):
   """The gradients for `rgb_to_hsv` operation.
 
   This function is a piecewise continuous function as defined here:

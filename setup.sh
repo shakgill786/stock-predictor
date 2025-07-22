@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# upgrade pip first
-pip install --upgrade pip
+set -euo pipefail
 
-# install everything
+# upgrade pip & install dependencies (should only be used locally—
+# on Render the deps are installed in buildCommand)
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# start Streamlit on the port Render assigns
-streamlit run app.py \
+# hand off to Streamlit
+exec streamlit run app.py \
   --server.port=$PORT \
   --server.enableXsrfProtection=false

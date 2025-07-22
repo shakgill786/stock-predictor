@@ -76,8 +76,8 @@ class InspectingPlacer {
 
   // `node` must be
   // PlacerInspectionRequiredOpsChecker::IsPlacerInspectionRequired.
-  absl::Status ComputeIOColocationGroups(const Node& node,
-                                         IOColocationGroups* groups);
+  Status ComputeIOColocationGroups(const Node& node,
+                                   IOColocationGroups* groups);
 
  private:
   const FunctionStack stack_;
@@ -87,8 +87,7 @@ class InspectingPlacer {
   const bool allow_soft_placement_;
   const bool log_device_placement_;
 
-  InspectingPlacer(const InspectingPlacer&) = delete;
-  void operator=(const InspectingPlacer&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(InspectingPlacer);
 };
 
 }  // namespace tensorflow

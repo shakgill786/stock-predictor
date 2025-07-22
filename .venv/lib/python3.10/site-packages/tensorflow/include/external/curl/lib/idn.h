@@ -24,13 +24,20 @@
  *
  ***************************************************************************/
 
+#ifdef USE_WIN32_IDN
+bool Curl_win32_idn_to_ascii(const char *in, char **out);
+#endif /* USE_WIN32_IDN */
 bool Curl_is_ASCII_name(const char *hostname);
 CURLcode Curl_idnconvert_hostname(struct hostname *host);
-#if defined(USE_LIBIDN2) || defined(USE_WIN32_IDN) || defined(USE_APPLE_IDN)
+#if defined(USE_LIBIDN2) || defined(USE_WIN32_IDN)
 #define USE_IDN
 void Curl_free_idnconverted_hostname(struct hostname *host);
-CURLcode Curl_idn_decode(const char *input, char **output);
-CURLcode Curl_idn_encode(const char *input, char **output);
+char *Curl_idn_decode(const char *input);
+#ifdef USE_LIBIDN2
+#define Curl_idn_free(x) idn2_free(x)
+#else
+#define Curl_idn_free(x) free(x)
+#endif
 
 #else
 #define Curl_free_idnconverted_hostname(x)

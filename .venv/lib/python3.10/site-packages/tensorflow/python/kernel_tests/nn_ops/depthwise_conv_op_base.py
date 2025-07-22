@@ -407,7 +407,7 @@ class DepthwiseConv2DBase(test.TestCase):
         interface_result, np_result, atol=tolerance, rtol=tolerance)
 
   @test_util.run_v1_only("b/120545219")
-  @test_util.run_gpu_only
+  @test_util.run_cuda_only
   def testDepthwiseConv2DCudnn(self):
     for index, (input_size, filter_size, _, stride, padding,
                 dilations) in enumerate(ConfigsToTest()):
@@ -510,10 +510,10 @@ class DepthwiseConv2DBase(test.TestCase):
           "Testing DepthwiseConv2D, %dth config: %r * %r, stride: %d, padding: "
           "%s", index, input_size, filter_size, stride, padding)
       # double datatype is currently not supported for convolution ops
-      # on the ROCm platform
-      data_types = [dtypes.float16, dtypes.float32, dtypes.bfloat16]
+      # on the ROCm platform and its support for bfloat16 is unknown.
+      data_types = [dtypes.float16, dtypes.float32]
       if not test.is_built_with_rocm():
-        data_types.extend([dtypes.float64])
+        data_types.extend([dtypes.float64, dtypes.bfloat16])
       data_formats = ["NHWC", "NCHW"] if test.is_gpu_available() else ["NHWC"]
       for data_type in data_types:
         for data_format in data_formats:
@@ -529,7 +529,8 @@ class DepthwiseConv2DBase(test.TestCase):
               dilations=dilations,
               tolerance=tolerance)
 
-  # This is testing against hand calculated results.
+
+# This is testing against hand calculated results.
 
   def _VerifyHandValues(self, tensor_in_sizes, filter_in_sizes, stride, padding,
                         expected, use_gpu):
@@ -735,7 +736,7 @@ class DepthwiseConv2DBase(test.TestCase):
       self.assertLess(err, tolerance)
 
   @test_util.run_v1_only("b/120545219")
-  @test_util.run_gpu_only
+  @test_util.run_cuda_only
   def testDepthwiseConv2DInputGradCudnn(self):
     for index, (input_size, filter_size, output_size, stride, padding,
                 dilations) in enumerate(CheckGradConfigsToTest()):
@@ -831,10 +832,10 @@ class DepthwiseConv2DBase(test.TestCase):
           "stride: %d, padding: %s", index, input_size, filter_size, stride,
           padding)
       # double datatype is currently not supported for convolution ops
-      # on the ROCm platform
-      data_types = [dtypes.float16, dtypes.float32, dtypes.bfloat16]
+      # on the ROCm platform and its support for bfloat16 is unknown.
+      data_types = [dtypes.float16, dtypes.float32]
       if not test.is_built_with_rocm():
-        data_types.extend([dtypes.float64])
+        data_types.extend([dtypes.float64, dtypes.bfloat16])
       data_formats = ["NHWC", "NCHW"] if test.is_gpu_available() else ["NHWC"]
       for data_type in data_types:
         for data_format in data_formats:
@@ -851,7 +852,7 @@ class DepthwiseConv2DBase(test.TestCase):
               dilations=dilations)
 
   @test_util.run_v1_only("b/120545219")
-  @test_util.run_gpu_only
+  @test_util.run_cuda_only
   def testDepthwiseConv2DFilterGradCudnn(self):
     for index, (input_size, filter_size, output_size, stride, padding,
                 dilations) in enumerate(CheckGradConfigsToTest()):
@@ -944,10 +945,10 @@ class DepthwiseConv2DBase(test.TestCase):
           "stride: %d, padding: %s", index, input_size, filter_size, stride,
           padding)
       # double datatype is currently not supported for convolution ops
-      # on the ROCm platform
-      data_types = [dtypes.float16, dtypes.float32, dtypes.bfloat16]
+      # on the ROCm platform and its support for bfloat16 is unknown.
+      data_types = [dtypes.float16, dtypes.float32]
       if not test.is_built_with_rocm():
-        data_types.extend([dtypes.float64])
+        data_types.extend([dtypes.float64, dtypes.bfloat16])
       data_formats = ["NHWC", "NCHW"] if test.is_gpu_available() else ["NHWC"]
       for data_type in data_types:
         for data_format in data_formats:
@@ -998,14 +999,14 @@ class DepthwiseConv2DBase(test.TestCase):
           padding)
       self._CompareBackpropInput(input_size, filter_size, output_size, stride,
                                  padding, "float32")
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareBackpropInput(input_size, filter_size, output_size, stride,
+                                 padding, "float64")
       self._CompareBackpropInput(input_size, filter_size, output_size, stride,
                                  padding, "bfloat16")
-      # Convolutions on the ROCm platform don't support double dtype.
-      # So, we skip these tests.
-      if not test.is_built_with_rocm():
-        self._CompareBackpropInput(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )
 
   @test_util.run_gpu_only
   def testDepthwiseConv2DInputGradExplicitCompare(self):
@@ -1019,13 +1020,14 @@ class DepthwiseConv2DBase(test.TestCase):
           padding)
       self._CompareBackpropInput(input_size, filter_size, output_size, stride,
                                  padding, "float32")
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareBackpropInput(input_size, filter_size, output_size, stride,
+                                 padding, "float64")
       self._CompareBackpropInput(input_size, filter_size, output_size, stride,
                                  padding, "bfloat16")
-      # Convolutions on the ROCm platform don't support double dtype.
-      if not test.is_built_with_rocm():
-        self._CompareBackpropInput(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )
 
   def _CompareBackpropFilter(self, input_sizes, filter_sizes, output_sizes,
                              stride, padding, dtype):
@@ -1078,13 +1080,15 @@ class DepthwiseConv2DBase(test.TestCase):
           padding)
       self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
                                   padding, "float32")
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
+                                  padding, "float64")
+
       self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
                                   padding, "bfloat16")
-      # Convolutions on the ROCm platform don't support double dtype.
-      if not test.is_built_with_rocm():
-        self._CompareBackpropFilter(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )
 
   @test_util.run_gpu_only
   def testDepthwiseConv2DFilterGradExplicitCompare(self):
@@ -1098,13 +1102,15 @@ class DepthwiseConv2DBase(test.TestCase):
           padding)
       self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
                                   padding, "float32")
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
+                                  padding, "float64")
+
       self._CompareBackpropFilter(input_size, filter_size, output_size, stride,
                                   padding, "bfloat16")
-      # Convolutions on the ROCm platform don't support double dtype.
-      if not test.is_built_with_rocm():
-        self._CompareBackpropFilter(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )
 
   def _CompareForward(self, input_sizes, filter_sizes, output_sizes, stride,
                       padding, dtype):
@@ -1140,14 +1146,15 @@ class DepthwiseConv2DBase(test.TestCase):
           padding)
       self._CompareForward(input_size, filter_size, output_size, stride,
                            padding, "float32")
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareForward(input_size, filter_size, output_size, stride,
+                           padding, "float64")
+
       self._CompareForward(input_size, filter_size, output_size, stride,
                            padding, "bfloat16")
-
-      # Convolutions on the ROCm platform don't support double dtype.
-      if not test.is_built_with_rocm():
-        self._CompareForward(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )
 
   @test_util.run_gpu_only
   def testDepthwiseConv2DForwardExplicitCompare(self):
@@ -1159,14 +1166,14 @@ class DepthwiseConv2DBase(test.TestCase):
           "Testing DepthwiseConv2DForwardCompare, %dth config: %r * %r, "
           "stride: %d, padding: %s", index, input_size, filter_size, stride,
           padding)
-
+      # Convolutions on the ROCm platform don't support double dtype. And its
+      # support for bf16 is unknown. So, we skip these tests.
+      if test.is_built_with_rocm():
+        continue
+      self._CompareForward(input_size, filter_size, output_size, stride,
+                           padding, "float64")
       self._CompareForward(input_size, filter_size, output_size, stride,
                            padding, "float32")
+
       self._CompareForward(input_size, filter_size, output_size, stride,
                            padding, "bfloat16")
-
-      # Convolutions on the ROCm platform don't support double dtype.
-      if not test.is_built_with_rocm():
-        self._CompareForward(
-            input_size, filter_size, output_size, stride, padding, "float64"
-        )

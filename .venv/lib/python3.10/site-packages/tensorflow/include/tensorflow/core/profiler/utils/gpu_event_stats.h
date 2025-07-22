@@ -17,7 +17,6 @@ limitations under the License.
 #define TENSORFLOW_CORE_PROFILER_UTILS_GPU_EVENT_STATS_H_
 
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 #include "absl/strings/string_view.h"
@@ -33,7 +32,6 @@ struct GpuEventStats {
 
   bool IsKernel() const { return !kernel_details.empty(); }
   bool IsMemCpy() const { return !memcpy_details.empty(); }
-  bool IsCudaGraphExecution() const { return cuda_graph_exec_id.has_value(); }
 
   bool IsXlaOp() const { return !hlo_op_names.empty(); }
   bool IsTfOp() const { return !tf_op_fullname.empty(); }
@@ -46,19 +44,16 @@ struct GpuEventStats {
   // Stats from XLA.
   std::vector<absl::string_view> hlo_op_names;
   absl::string_view hlo_module_name;
-  std::optional<uint64_t> program_id;
+  absl::optional<uint64_t> program_id;
 
   // Stats from CUPTI.
   absl::string_view kernel_details;
   absl::string_view memcpy_details;
-  std::optional<int64_t> correlation_id;
-  std::optional<int64_t> scope_range_id;
+  absl::optional<int64_t> correlation_id;
 
   // Stats derived by grouping.
-  std::optional<int64_t> group_id;
+  absl::optional<int64_t> group_id;
   bool is_eager = false;
-  std::optional<uint64_t> cuda_graph_exec_id;
-  std::optional<uint64_t> cuda_graph_id_for_inner_node;
 };
 
 // Stats for a host-side GPU launch XEvent.
@@ -70,11 +65,11 @@ struct LaunchEventStats {
   }
 
   // Stats from CUPTI.
-  std::optional<int64_t> device_id;
-  std::optional<int64_t> correlation_id;
+  absl::optional<int64_t> device_id;
+  absl::optional<int64_t> correlation_id;
 
   // Stat derived by grouping.
-  std::optional<int64_t> group_id;
+  absl::optional<int64_t> group_id;
 };
 
 }  // namespace profiler

@@ -33,8 +33,7 @@ class Value;
 class OperationFolder {
 public:
   OperationFolder(MLIRContext *ctx, OpBuilder::Listener *listener = nullptr)
-      : erasedFoldedLocation(UnknownLoc::get(ctx)), interfaces(ctx),
-        rewriter(ctx, listener) {}
+      : interfaces(ctx), rewriter(ctx, listener) {}
 
   /// Tries to perform folding on the given `op`, including unifying
   /// deduplicated constants. If successful, replaces `op`'s uses with
@@ -66,7 +65,7 @@ public:
   /// be created in a parent block. On success this returns the constant
   /// operation, nullptr otherwise.
   Value getOrCreateConstant(Block *block, Dialect *dialect, Attribute value,
-                            Type type);
+                            Type type, Location loc);
 
 private:
   /// This map keeps track of uniqued constants by dialect, attribute, and type.
@@ -95,9 +94,6 @@ private:
   Operation *tryGetOrCreateConstant(ConstantMap &uniquedConstants,
                                     Dialect *dialect, Attribute value,
                                     Type type, Location loc);
-
-  /// The location to overwrite with for folder-owned constants.
-  UnknownLoc erasedFoldedLocation;
 
   /// A mapping between an insertion region and the constants that have been
   /// created within it.

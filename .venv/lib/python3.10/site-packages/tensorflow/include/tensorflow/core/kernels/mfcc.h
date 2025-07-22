@@ -68,8 +68,7 @@ class Mfcc {
   double upper_frequency_limit_;
   int filterbank_channel_count_;
   int dct_coefficient_count_;
-  Mfcc(const Mfcc&) = delete;
-  void operator=(const Mfcc&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(Mfcc);
 };
 
 }  // namespace tensorflow

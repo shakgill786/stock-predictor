@@ -20,7 +20,7 @@ import sys
 import warnings
 
 from absl import app
-import tensorflow as tf
+import tensorflow as tf  # pylint: disable=unused-import
 
 from tensorflow.lite.python import lite
 from tensorflow.lite.python.convert import register_custom_opdefs
@@ -32,8 +32,6 @@ from tensorflow.python.platform import gfile
 from tensorflow.python.util import keras_deps
 
 # Needed to enable TF2 by default.
-
-_ = tf.keras.models.save_model  # ensure necessary imports are executed
 
 
 def _parse_array(values, type_fn=str):

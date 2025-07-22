@@ -17,7 +17,7 @@ limitations under the License.
 
 #define EIGEN_USE_THREADS
 
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
@@ -31,8 +31,7 @@ typedef Eigen::ThreadPoolDevice CPUDevice;
 typedef Eigen::GpuDevice GPUDevice;
 
 template <typename Device>
-absl::Status ZerosLikeTensor(OpKernelContext* ctx, const Tensor& x,
-                             Tensor* out) {
+Status ZerosLikeTensor(OpKernelContext* ctx, const Tensor& x, Tensor* out) {
   AllocatorAttributes attr;
   if (x.dtype() == DT_VARIANT) {
     attr.set_on_host(true);
@@ -66,19 +65,19 @@ absl::Status ZerosLikeTensor(OpKernelContext* ctx, const Tensor& x,
           "Trying to compute zeros_like for unsupported dtype ",
           DataTypeString(out->dtype()));
   }
-  return absl::OkStatus();
+  return OkStatus();
 }
 
 template <typename Device>
-absl::Status BinaryAddTensors(OpKernelContext* ctx, const Tensor& a,
-                              const Tensor& b, Tensor* out) {
+Status BinaryAddTensors(OpKernelContext* ctx, const Tensor& a, const Tensor& b,
+                        Tensor* out) {
   if (a.dtype() == DT_INVALID) {
     *out = b;
-    return absl::OkStatus();
+    return OkStatus();
   }
   if (b.dtype() == DT_INVALID) {
     *out = a;
-    return absl::OkStatus();
+    return OkStatus();
   }
   if (a.dtype() != b.dtype()) {
     return errors::InvalidArgument(
@@ -121,7 +120,7 @@ absl::Status BinaryAddTensors(OpKernelContext* ctx, const Tensor& a,
       return errors::InvalidArgument("Trying to add unsupported dtype ",
                                      out->dtype());
   }
-  return absl::OkStatus();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

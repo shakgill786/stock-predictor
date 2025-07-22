@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <type_traits>
 
-#include "Eigen/Core"  // from @eigen_archive
+#include "third_party/eigen3/Eigen/Core"
 #include "tensorflow/core/platform/macros.h"
 
 namespace tensorflow {

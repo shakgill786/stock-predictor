@@ -49,14 +49,14 @@ class RefCountedIntraProcessRendezvous : public Rendezvous {
   // no other references to the RefCountedIntraProcessRendezvous object.
   // If the caller intend to keep a longer life time then it shall keep its own
   // reference to the RefCountedIntraProcessRendezvous.
-  absl::Status Send(const ParsedKey& key, const Rendezvous::Args& args,
-                    const Tensor& val, const bool is_dead) override;
+  Status Send(const ParsedKey& key, const Rendezvous::Args& args,
+              const Tensor& val, const bool is_dead) override;
   void RecvAsync(const ParsedKey& key, const Rendezvous::Args& args,
                  DoneCallback done) override;
-  void StartAbort(const absl::Status& status) override;
+  void StartAbort(const Status& status) override;
 
   // Returns the member LocalRendezvous' status.
-  absl::Status GetLocalRendezvousStatus();
+  Status GetLocalRendezvousStatus();
 
   inline void UpdateDeviceManager(DeviceMgr* device_mgr) {
     device_mgr_ = device_mgr;
@@ -68,9 +68,7 @@ class RefCountedIntraProcessRendezvous : public Rendezvous {
 
   ~RefCountedIntraProcessRendezvous() override;
 
-  RefCountedIntraProcessRendezvous(const RefCountedIntraProcessRendezvous&) =
-      delete;
-  void operator=(const RefCountedIntraProcessRendezvous&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(RefCountedIntraProcessRendezvous);
 };
 
 // RefCountedIntraProcessRendezvous is aliased to IntraProcessRendezvous for
@@ -87,18 +85,17 @@ class PrivateIntraProcessRendezvous : public RendezvousInterface {
   ~PrivateIntraProcessRendezvous() override;
 
   // Implementation of RendezvousInterface methods.
-  absl::Status Send(const ParsedKey& key, const Rendezvous::Args& args,
-                    const Tensor& val, const bool is_dead) override;
+  Status Send(const ParsedKey& key, const Rendezvous::Args& args,
+              const Tensor& val, const bool is_dead) override;
   void RecvAsync(const ParsedKey& key, const Rendezvous::Args& args,
                  DoneCallback done) override;
-  void StartAbort(const absl::Status& status) override;
+  void StartAbort(const Status& status) override;
 
  private:
   const DeviceMgr* device_mgr_;
   LocalRendezvous local_;
 
-  PrivateIntraProcessRendezvous(const PrivateIntraProcessRendezvous&) = delete;
-  void operator=(const PrivateIntraProcessRendezvous&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(PrivateIntraProcessRendezvous);
 };
 
 }  // end namespace tensorflow

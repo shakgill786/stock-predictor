@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+# LINT.IfChange
 """Utilities for creating SavedModels."""
 
 import collections
@@ -323,7 +324,7 @@ def export_outputs_for_mode(
       metric_value must be a Tensor, and update_op must be a Tensor or Op
 
   Returns:
-    Dictionary mapping the key to an `ExportOutput` object.
+    Dictionary mapping the a key to an `tf.estimator.export.ExportOutput` object
     The key is the expected SignatureDef key for the mode.
 
   Raises:
@@ -332,7 +333,9 @@ def export_outputs_for_mode(
   if mode not in SIGNATURE_KEY_MAP:
     raise ValueError(
         f'Export output type not found for `mode`: {mode}. Expected one of: '
-        f'{list(SIGNATURE_KEY_MAP.keys())}.')
+        f'{list(SIGNATURE_KEY_MAP.keys())}.\n'
+        'One likely error is that V1 Estimator Modekeys were somehow passed to '
+        'this function. Please ensure that you are using the new ModeKeys.')
   signature_key = SIGNATURE_KEY_MAP[mode]
   if mode_keys.is_predict(mode):
     return get_export_outputs(serving_export_outputs, predictions)
@@ -407,3 +410,4 @@ def _maybe_add_default_serving_output(export_outputs):
           'specify a default.')
 
   return export_outputs
+# LINT.ThenChange(//keras/saving/utils_v1/export_utils.py)

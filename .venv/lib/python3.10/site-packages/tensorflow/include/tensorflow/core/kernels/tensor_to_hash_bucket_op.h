@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <string>
 
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -66,13 +66,13 @@ struct LaunchTensorToHashBucket {
   }
 };
 
-#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
+#if GOOGLE_CUDA
 template <typename T>
 struct LaunchTensorToHashBucket<Eigen::GpuDevice, T> {
   void operator()(OpKernelContext* c, const int64_t num_buckets, const T* input,
                   const int num_elems, int64_t* output);
 };
-#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
+#endif  // GOOGLE_CUDA
 }  // namespace functor
 
 }  // namespace tensorflow

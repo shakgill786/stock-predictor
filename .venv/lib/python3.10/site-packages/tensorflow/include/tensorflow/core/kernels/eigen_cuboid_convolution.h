@@ -16,13 +16,13 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_KERNELS_EIGEN_CUBOID_CONVOLUTION_H_
 #define TENSORFLOW_CORE_KERNELS_EIGEN_CUBOID_CONVOLUTION_H_
 
-#include "unsupported/Eigen/CXX11/Tensor"  // from @eigen_archive
+#include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 
 #if defined(TENSORFLOW_USE_CUSTOM_CONTRACTION_KERNEL)
-#include "xla/tsl/framework/contraction/eigen_contraction_kernel.h"
+#include "tensorflow/tsl/framework/contraction/eigen_contraction_kernel.h"
 #endif
 
-#include "xla/tsl/framework/convolution/eigen_convolution_helpers.h"
+#include "tensorflow/tsl/framework/convolution/eigen_convolution_helpers.h"
 
 namespace Eigen {
 

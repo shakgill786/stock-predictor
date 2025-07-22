@@ -48,7 +48,7 @@ class DebuggerStateInterface {
   //   input_names: Name of the input Tensors (feed keys).
   //   output_names: Names of the fetched Tensors.
   //   target_names: Names of the target nodes.
-  virtual absl::Status PublishDebugMetadata(
+  virtual Status PublishDebugMetadata(
       const int64_t global_step, const int64_t session_run_index,
       const int64_t executor_step_index, const std::vector<string>& input_names,
       const std::vector<string>& output_names,
@@ -62,11 +62,11 @@ class DebugGraphDecoratorInterface {
   // Insert special-purpose debug nodes to graph and dump the graph for
   // record. See the documentation of DebugNodeInserter::InsertNodes() for
   // details.
-  virtual absl::Status DecorateGraph(Graph* graph, Device* device) = 0;
+  virtual Status DecorateGraph(Graph* graph, Device* device) = 0;
 
   // Publish Graph to debug URLs.
-  virtual absl::Status PublishGraph(const Graph& graph,
-                                    const string& device_name) = 0;
+  virtual Status PublishGraph(const Graph& graph,
+                              const string& device_name) = 0;
 };
 
 typedef std::function<std::unique_ptr<DebuggerStateInterface>(
@@ -88,15 +88,13 @@ class DebuggerStateRegistry {
   // DebuggerStateInterface implementation using the registered factory,
   // owned by the caller and return an OK Status. Otherwise returns an error
   // Status.
-  static absl::Status CreateState(
-      const DebugOptions& debug_options,
-      std::unique_ptr<DebuggerStateInterface>* state);
+  static Status CreateState(const DebugOptions& debug_options,
+                            std::unique_ptr<DebuggerStateInterface>* state);
 
  private:
   static DebuggerStateFactory* factory_;
 
-  DebuggerStateRegistry(const DebuggerStateRegistry&) = delete;
-  void operator=(const DebuggerStateRegistry&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DebuggerStateRegistry);
 };
 
 typedef std::function<std::unique_ptr<DebugGraphDecoratorInterface>(
@@ -107,15 +105,14 @@ class DebugGraphDecoratorRegistry {
  public:
   static void RegisterFactory(const DebugGraphDecoratorFactory& factory);
 
-  static absl::Status CreateDecorator(
+  static Status CreateDecorator(
       const DebugOptions& options,
       std::unique_ptr<DebugGraphDecoratorInterface>* decorator);
 
  private:
   static DebugGraphDecoratorFactory* factory_;
 
-  DebugGraphDecoratorRegistry(const DebugGraphDecoratorRegistry&) = delete;
-  void operator=(const DebugGraphDecoratorRegistry&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(DebugGraphDecoratorRegistry);
 };
 
 }  // end namespace tensorflow

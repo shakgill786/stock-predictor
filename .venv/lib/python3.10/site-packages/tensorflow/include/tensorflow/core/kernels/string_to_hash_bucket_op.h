@@ -66,8 +66,7 @@ class StringToKeyedHashBucketOp : public OpKernel {
   int64_t num_buckets_;
   uint64 key_[2];
 
-  StringToKeyedHashBucketOp(const StringToKeyedHashBucketOp&) = delete;
-  void operator=(const StringToKeyedHashBucketOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(StringToKeyedHashBucketOp);
 };
 
 }  // namespace tensorflow

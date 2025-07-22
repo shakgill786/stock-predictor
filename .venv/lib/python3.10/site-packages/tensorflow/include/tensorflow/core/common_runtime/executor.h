@@ -30,7 +30,6 @@ limitations under the License.
 #include "tensorflow/core/lib/core/notification.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/threadpool_interface.h"
-#include "tensorflow/core/platform/error_logging.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/util/managed_stack_trace.h"
@@ -101,7 +100,6 @@ class Executor {
     StepStatsCollectorInterface* stats_collector = nullptr;
     CallFrameInterface* call_frame = nullptr;
     CancellationManager* cancellation_manager = nullptr;
-    const ConfigProto* session_config = nullptr;
     SessionState* session_state = nullptr;
     // Unique session identifier. Can be empty.
     string session_handle;
@@ -126,29 +124,20 @@ class Executor {
     // on the scheduling thread.
     bool run_all_kernels_inline = false;
   };
-  typedef std::function<void(const absl::Status&)> DoneCallback;
-
-  void RunAsync(const Args& args, DoneCallback done) {
-    RunAsyncInternal(args, [done = std::move(done)](const absl::Status& s) {
-      if (!s.ok()) Log("TFExecutor", "Run", s.message()).IgnoreError();
-      done(s);
-    });
-  }
+  typedef std::function<void(const Status&)> DoneCallback;
+  virtual void RunAsync(const Args& args, DoneCallback done) = 0;
 
   // Synchronous wrapper for RunAsync().
-  virtual absl::Status Run(const Args& args) {
-    absl::Status ret;
+  virtual Status Run(const Args& args) {
+    Status ret;
     Notification n;
-    RunAsync(args, [&ret, &n](const absl::Status& s) {
+    RunAsync(args, [&ret, &n](const Status& s) {
       ret = s;
       n.Notify();
     });
     n.WaitForNotification();
     return ret;
   }
-
- private:
-  virtual void RunAsyncInternal(const Args& args, DoneCallback done) = 0;
 };
 
 // Creates an Executor that computes the given "graph".
@@ -158,8 +147,8 @@ class Executor {
 //
 // "params" provides a set of context for the executor. We expect that
 // different context would provide different implementations.
-absl::Status NewLocalExecutor(const LocalExecutorParams& params,
-                              const Graph& graph, Executor** executor);
+::tensorflow::Status NewLocalExecutor(const LocalExecutorParams& params,
+                                      const Graph& graph, Executor** executor);
 
 // A class to help run multiple executors in parallel and wait until
 // all of them are complete.
@@ -168,7 +157,7 @@ absl::Status NewLocalExecutor(const LocalExecutorParams& params,
 // is called.
 class ExecutorBarrier {
  public:
-  typedef std::function<void(const absl::Status&)> StatusCallback;
+  typedef std::function<void(const Status&)> StatusCallback;
 
   // Create an ExecutorBarrier for 'num' different executors.
   //
@@ -197,10 +186,10 @@ class ExecutorBarrier {
   int pending_ TF_GUARDED_BY(mu_) = 0;
   StatusGroup status_group_ TF_GUARDED_BY(mu_);
 
-  void WhenDone(const absl::Status& s) {
+  void WhenDone(const Status& s) {
     Rendezvous* error_rendez = nullptr;
     StatusCallback done = nullptr;
-    absl::Status status;
+    Status status;
 
     {
       mutex_lock l(mu_);
@@ -243,8 +232,7 @@ class ExecutorBarrier {
     }
   }
 
-  ExecutorBarrier(const ExecutorBarrier&) = delete;
-  void operator=(const ExecutorBarrier&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(ExecutorBarrier);
 };
 
 // A few helpers to facilitate create/delete kernels.
@@ -252,10 +240,9 @@ class ExecutorBarrier {
 // Creates a kernel based on "props" on device "device". The kernel can
 // access the functions in the "flib". The caller takes ownership of
 // returned "*kernel".
-absl::Status CreateNonCachedKernel(
-    Device* device, FunctionLibraryRuntime* flib,
-    const std::shared_ptr<const NodeProperties>& props, int graph_def_version,
-    OpKernel** kernel);
+Status CreateNonCachedKernel(Device* device, FunctionLibraryRuntime* flib,
+                             const std::shared_ptr<const NodeProperties>& props,
+                             int graph_def_version, OpKernel** kernel);
 
 // Deletes "kernel" returned by CreateKernel.
 void DeleteNonCachedKernel(OpKernel* kernel);

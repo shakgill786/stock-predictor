@@ -38,8 +38,7 @@ class VariableOp : public OpKernel {
   TensorShape shape_;
   ContainerInfo cinfo_;
 
-  VariableOp(const VariableOp&) = delete;
-  void operator=(const VariableOp&) = delete;
+  TF_DISALLOW_COPY_AND_ASSIGN(VariableOp);
 };
 
 }  // namespace tensorflow

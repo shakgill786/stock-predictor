@@ -1,4 +1,4 @@
-//===- File.h - Reading sparse tensors from files ---------------*- C++ -*-===//
+//===- File.h - Parsing sparse tensors from files ---------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements reading sparse tensor from files in one of the
+// This file implements parsing and printing of files in one of the
 // following external formats:
 //
 // (1) Matrix Market Exchange (MME): *.mtx
@@ -15,12 +15,18 @@
 // (2) Formidable Repository of Open Sparse Tensors and Tools (FROSTT): *.tns
 //     http://frostt.io/tensors/file-formats.html
 //
+// This file is part of the lightweight runtime support library for sparse
+// tensor manipulations.  The functionality of the support library is meant
+// to simplify benchmarking, testing, and debugging MLIR code operating on
+// sparse tensors.  However, the provided functionality is **not** part of
+// core MLIR itself.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef MLIR_EXECUTIONENGINE_SPARSETENSOR_FILE_H
 #define MLIR_EXECUTIONENGINE_SPARSETENSOR_FILE_H
 
-#include "mlir/ExecutionEngine/SparseTensor/MapRef.h"
+#include "mlir/ExecutionEngine/SparseTensor/PermutationRef.h"
 #include "mlir/ExecutionEngine/SparseTensor/Storage.h"
 
 #include <fstream>
@@ -77,10 +83,13 @@ inline V readValue(char **linePtr, bool isPattern) {
 } // namespace detail
 
 //===----------------------------------------------------------------------===//
-//
-//  Reader class.
-//
-//===----------------------------------------------------------------------===//
+
+// TODO: benchmark whether to keep various methods inline vs moving them
+// off to the cpp file.
+
+// TODO: consider distinguishing separate classes for before vs
+// after reading the header; so as to statically avoid the need
+// to `assert(isValid())`.
 
 /// This class abstracts over the information stored in file headers,
 /// as well as providing the buffers and methods for parsing those headers.
@@ -115,12 +124,10 @@ public:
     SparseTensorReader *reader = new SparseTensorReader(filename);
     reader->openFile();
     reader->readHeader();
-    if (!reader->canReadAs(valTp)) {
-      fprintf(stderr,
-              "Tensor element type %d not compatible with values in file %s\n",
-              static_cast<int>(valTp), filename);
-      exit(1);
-    }
+    if (!reader->canReadAs(valTp))
+      MLIR_SPARSETENSOR_FATAL(
+          "Tensor element type %d not compatible with values in file %s\n",
+          static_cast<int>(valTp), filename);
     reader->assertMatchesShape(dimRank, dimShape);
     return reader;
   }
@@ -139,7 +146,6 @@ public:
   /// Reads and parses the file's header.
   void readHeader();
 
-  /// Returns the stored value kind.
   ValueKind getValueKind() const { return valueKind_; }
 
   /// Checks if a header has been successfully read.
@@ -193,20 +199,51 @@ public:
   /// valid after parsing the header.
   void assertMatchesShape(uint64_t rank, const uint64_t *shape) const;
 
+  /// Reads a sparse tensor element from the next line in the input file and
+  /// returns the value of the element. Stores the coordinates of the element
+  /// to the `dimCoords` array.
+  template <typename V>
+  V readElement(uint64_t dimRank, uint64_t *dimCoords) {
+    assert(dimRank == getRank() && "rank mismatch");
+    char *linePtr = readCoords(dimCoords);
+    return detail::readValue<V>(&linePtr, isPattern());
+  }
+
+  /// Allocates a new COO object for `lvlSizes`, initializes it by reading
+  /// all the elements from the file and applying `dim2lvl` to their
+  /// dim-coordinates, and then closes the file.
+  ///
+  /// Preconditions:
+  /// * `lvlSizes` must be valid for `lvlRank`.
+  /// * `dim2lvl` must be valid for `getRank()`.
+  /// * `dim2lvl` maps `getDimSizes()`-coordinates to `lvlSizes`-coordinates.
+  /// * the file's actual value type can be read as `V`.
+  ///
+  /// Asserts:
+  /// * `isValid()`
+  /// * `dim2lvl` is a permutation, and therefore also `lvlRank == getRank()`.
+  ///   (This requirement will be lifted once we functionalize `dim2lvl`.)
+  //
+  // NOTE: This method is factored out of `readSparseTensor` primarily to
+  // reduce code bloat (since the bulk of the code doesn't care about the
+  // `<P,I>` type template parameters).  But we leave it public since it's
+  // perfectly reasonable for clients to use.
+  template <typename V>
+  SparseTensorCOO<V> *readCOO(uint64_t lvlRank, const uint64_t *lvlSizes,
+                              const uint64_t *dim2lvl);
+
   /// Allocates a new sparse-tensor storage object with the given encoding,
   /// initializes it by reading all the elements from the file, and then
-  /// closes the file. Templated on P, I, and V.
+  /// closes the file.  Preconditions/assertions are as per `readCOO`
+  /// and `SparseTensorStorage::newFromCOO`.
   template <typename P, typename I, typename V>
   SparseTensorStorage<P, I, V> *
   readSparseTensor(uint64_t lvlRank, const uint64_t *lvlSizes,
-                   const LevelType *lvlTypes, const uint64_t *dim2lvl,
-                   const uint64_t *lvl2dim) {
-    const uint64_t dimRank = getRank();
-    MapRef map(dimRank, lvlRank, dim2lvl, lvl2dim);
-    auto *lvlCOO = readCOO<V>(map, lvlSizes);
+                   const DimLevelType *lvlTypes, const uint64_t *lvl2dim,
+                   const uint64_t *dim2lvl) {
+    auto *lvlCOO = readCOO<V>(lvlRank, lvlSizes, dim2lvl);
     auto *tensor = SparseTensorStorage<P, I, V>::newFromCOO(
-        dimRank, getDimSizes(), lvlRank, lvlSizes, lvlTypes, dim2lvl, lvl2dim,
-        lvlCOO);
+        getRank(), getDimSizes(), lvlRank, lvlTypes, lvl2dim, *lvlCOO);
     delete lvlCOO;
     return tensor;
   }
@@ -214,17 +251,23 @@ public:
   /// Reads the COO tensor from the file, stores the coordinates and values to
   /// the given buffers, returns a boolean value to indicate whether the COO
   /// elements are sorted.
+  /// Precondition: the buffers should have enough space to hold the elements.
   template <typename C, typename V>
   bool readToBuffers(uint64_t lvlRank, const uint64_t *dim2lvl,
-                     const uint64_t *lvl2dim, C *lvlCoordinates, V *values);
+                     C *lvlCoordinates, V *values);
 
 private:
-  /// Attempts to read a line from the file.
+  /// Attempts to read a line from the file.  Is private because there's
+  /// no reason for client code to call it.
   void readLine();
 
   /// Reads the next line of the input file and parses the coordinates
   /// into the `dimCoords` argument.  Returns the position in the `line`
-  /// buffer where the element's value should be parsed from.
+  /// buffer where the element's value should be parsed from.  This method
+  /// has been factored out from `readElement` to minimize code bloat
+  /// for the generated library.
+  ///
+  /// Precondition: `dimCoords` is valid for `getRank()`.
   template <typename C>
   char *readCoords(C *dimCoords) {
     readLine();
@@ -239,20 +282,24 @@ private:
     return linePtr;
   }
 
-  /// Reads all the elements from the file while applying the given map.
-  template <typename V>
-  SparseTensorCOO<V> *readCOO(const MapRef &map, const uint64_t *lvlSizes);
-
-  /// The implementation of `readCOO` that is templated `IsPattern` in order
-  /// to perform LICM without needing to duplicate the source code.
+  /// The internal implementation of `readCOO`.  We template over
+  /// `IsPattern` in order to perform LICM without needing to duplicate the
+  /// source code.
+  //
+  // TODO: We currently take the `dim2lvl` argument as a `PermutationRef`
+  // since that's what `readCOO` creates.  Once we update `readCOO` to
+  // functionalize the mapping, then this helper will just take that
+  // same function.
   template <typename V, bool IsPattern>
-  void readCOOLoop(const MapRef &map, SparseTensorCOO<V> *coo);
+  void readCOOLoop(uint64_t lvlRank, detail::PermutationRef dim2lvl,
+                   SparseTensorCOO<V> *lvlCOO);
 
-  /// The internal implementation of `readToBuffers`. We template over
-  /// `IsPattern` in order to perform LICM without needing to duplicate
-  /// the source code.
+  /// The internal implementation of `readToBuffers`.  We template over
+  /// `IsPattern` in order to perform LICM without needing to duplicate the
+  /// source code.
   template <typename C, typename V, bool IsPattern>
-  bool readToBuffersLoop(const MapRef &map, C *lvlCoordinates, V *values);
+  bool readToBuffersLoop(uint64_t lvlRank, detail::PermutationRef dim2lvl,
+                         C *lvlCoordinates, V *values);
 
   /// Reads the MME header of a general sparse matrix of type real.
   void readMMEHeader();
@@ -273,75 +320,99 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-//
-//  Reader class methods.
-//
-//===----------------------------------------------------------------------===//
 
 template <typename V>
-SparseTensorCOO<V> *SparseTensorReader::readCOO(const MapRef &map,
-                                                const uint64_t *lvlSizes) {
+SparseTensorCOO<V> *SparseTensorReader::readCOO(uint64_t lvlRank,
+                                                const uint64_t *lvlSizes,
+                                                const uint64_t *dim2lvl) {
   assert(isValid() && "Attempt to readCOO() before readHeader()");
+  // Construct a `PermutationRef` for the `pushforward` below.
+  // TODO: This specific implementation does not generalize to arbitrary
+  // mappings, but once we functionalize the `dim2lvl` argument we can
+  // simply use that function instead.
+  const uint64_t dimRank = getRank();
+  assert(lvlRank == dimRank && "Rank mismatch");
+  detail::PermutationRef d2l(dimRank, dim2lvl);
   // Prepare a COO object with the number of stored elems as initial capacity.
-  auto *coo = new SparseTensorCOO<V>(map.getLvlRank(), lvlSizes, getNSE());
-  // Enter the reading loop.
-  if (isPattern())
-    readCOOLoop<V, true>(map, coo);
+  auto *lvlCOO = new SparseTensorCOO<V>(lvlRank, lvlSizes, getNSE());
+  // Do some manual LICM, to avoid assertions in the for-loop.
+  const bool IsPattern = isPattern();
+  if (IsPattern)
+    readCOOLoop<V, true>(lvlRank, d2l, lvlCOO);
   else
-    readCOOLoop<V, false>(map, coo);
+    readCOOLoop<V, false>(lvlRank, d2l, lvlCOO);
   // Close the file and return the COO.
   closeFile();
-  return coo;
+  return lvlCOO;
 }
 
 template <typename V, bool IsPattern>
-void SparseTensorReader::readCOOLoop(const MapRef &map,
-                                     SparseTensorCOO<V> *coo) {
-  const uint64_t dimRank = map.getDimRank();
-  const uint64_t lvlRank = map.getLvlRank();
-  assert(dimRank == getRank());
+void SparseTensorReader::readCOOLoop(uint64_t lvlRank,
+                                     detail::PermutationRef dim2lvl,
+                                     SparseTensorCOO<V> *lvlCOO) {
+  const uint64_t dimRank = getRank();
   std::vector<uint64_t> dimCoords(dimRank);
   std::vector<uint64_t> lvlCoords(lvlRank);
-  for (uint64_t k = 0, nse = getNSE(); k < nse; k++) {
+  for (uint64_t nse = getNSE(), k = 0; k < nse; ++k) {
+    // We inline `readElement` here in order to avoid redundant
+    // assertions, since they're guaranteed by the call to `isValid()`
+    // and the construction of `dimCoords` above.
     char *linePtr = readCoords(dimCoords.data());
     const V value = detail::readValue<V, IsPattern>(&linePtr);
-    map.pushforward(dimCoords.data(), lvlCoords.data());
-    coo->add(lvlCoords, value);
+    dim2lvl.pushforward(dimRank, dimCoords.data(), lvlCoords.data());
+    // TODO: <https://github.com/llvm/llvm-project/issues/54179>
+    lvlCOO->add(lvlCoords, value);
   }
 }
 
 template <typename C, typename V>
 bool SparseTensorReader::readToBuffers(uint64_t lvlRank,
                                        const uint64_t *dim2lvl,
-                                       const uint64_t *lvl2dim,
                                        C *lvlCoordinates, V *values) {
   assert(isValid() && "Attempt to readCOO() before readHeader()");
-  MapRef map(getRank(), lvlRank, dim2lvl, lvl2dim);
+  // Construct a `PermutationRef` for the `pushforward` below.
+  // TODO: This specific implementation does not generalize to arbitrary
+  // mappings, but once we functionalize the `dim2lvl` argument we can
+  // simply use that function instead.
+  const uint64_t dimRank = getRank();
+  assert(lvlRank == dimRank && "Rank mismatch");
+  detail::PermutationRef d2l(dimRank, dim2lvl);
+  // Do some manual LICM, to avoid assertions in the for-loop.
   bool isSorted =
-      isPattern() ? readToBuffersLoop<C, V, true>(map, lvlCoordinates, values)
-                  : readToBuffersLoop<C, V, false>(map, lvlCoordinates, values);
+      isPattern()
+          ? readToBuffersLoop<C, V, true>(lvlRank, d2l, lvlCoordinates, values)
+          : readToBuffersLoop<C, V, false>(lvlRank, d2l, lvlCoordinates,
+                                           values);
+
+  // Close the file and return isSorted.
   closeFile();
   return isSorted;
 }
 
 template <typename C, typename V, bool IsPattern>
-bool SparseTensorReader::readToBuffersLoop(const MapRef &map, C *lvlCoordinates,
-                                           V *values) {
-  const uint64_t dimRank = map.getDimRank();
-  const uint64_t lvlRank = map.getLvlRank();
+bool SparseTensorReader::readToBuffersLoop(uint64_t lvlRank,
+                                           detail::PermutationRef dim2lvl,
+                                           C *lvlCoordinates, V *values) {
+  const uint64_t dimRank = getRank();
   const uint64_t nse = getNSE();
-  assert(dimRank == getRank());
   std::vector<C> dimCoords(dimRank);
+  // Read the first element with isSorted=false as a way to avoid accessing its
+  // previous element.
   bool isSorted = false;
   char *linePtr;
+  // We inline `readElement` here in order to avoid redundant assertions,
+  // since they're guaranteed by the call to `isValid()` and the construction
+  // of `dimCoords` above.
   const auto readNextElement = [&]() {
     linePtr = readCoords<C>(dimCoords.data());
-    map.pushforward(dimCoords.data(), lvlCoordinates);
+    dim2lvl.pushforward(dimRank, dimCoords.data(), lvlCoordinates);
     *values = detail::readValue<V, IsPattern>(&linePtr);
     if (isSorted) {
-      // Note that isSorted is set to false when reading the first element,
+      // Note that isSorted was set to false while reading the first element,
       // to guarantee the safeness of using prevLvlCoords.
       C *prevLvlCoords = lvlCoordinates - lvlRank;
+      // TODO: define a new CoordsLT which is like ElementLT but doesn't have
+      // the V parameter, and use it here.
       for (uint64_t l = 0; l < lvlRank; ++l) {
         if (prevLvlCoords[l] != lvlCoordinates[l]) {
           if (prevLvlCoords[l] > lvlCoordinates[l])
@@ -357,7 +428,35 @@ bool SparseTensorReader::readToBuffersLoop(const MapRef &map, C *lvlCoordinates,
   isSorted = true;
   for (uint64_t n = 1; n < nse; ++n)
     readNextElement();
+
   return isSorted;
+}
+
+/// Writes the sparse tensor to `filename` in extended FROSTT format.
+template <typename V>
+inline void writeExtFROSTT(const SparseTensorCOO<V> &coo,
+                           const char *filename) {
+  assert(filename && "Got nullptr for filename");
+  const auto &dimSizes = coo.getDimSizes();
+  const auto &elements = coo.getElements();
+  const uint64_t dimRank = coo.getRank();
+  const uint64_t nse = elements.size();
+  std::fstream file;
+  file.open(filename, std::ios_base::out | std::ios_base::trunc);
+  assert(file.is_open());
+  file << "; extended FROSTT format\n" << dimRank << " " << nse << std::endl;
+  for (uint64_t d = 0; d < dimRank - 1; ++d)
+    file << dimSizes[d] << " ";
+  file << dimSizes[dimRank - 1] << std::endl;
+  for (uint64_t i = 0; i < nse; ++i) {
+    const auto &coords = elements[i].coords;
+    for (uint64_t d = 0; d < dimRank; ++d)
+      file << (coords[d] + 1) << " ";
+    file << elements[i].value << std::endl;
+  }
+  file.flush();
+  file.close();
+  assert(file.good());
 }
 
 } // namespace sparse_tensor
