@@ -13,11 +13,13 @@ statsmodels>=0.14
 prophet>=1.1
 
 # deep learning (CPU)
-tensorflow>=2.11.0,<2.12
+tensorflow-macos>=2.13.0
+tensorflow-metal>=0.9.0
+tensorflow>=2.13.0,<2.15.0; platform_system=="Linux"
 keras>=2.11.0,<2.12
 
 # protobuf (satisfy both TF and Streamlit)
-protobuf>=3.20,<5
+
 
 # technical analysis & extras
 ta>=0.11
