@@ -1,22 +1,9 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
-from xgboost import XGBRegressor
-from sklearn.metrics import mean_absolute_percentage_error
-from prophet import Prophet
-from statsmodels.tsa.arima.model import ARIMA
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
-from sklearn.preprocessing import MinMaxScaler
-import plotly.graph_objects as go
 
-
-# --- Streamlit config ---
+# --- Page config ---
 st.set_page_config(page_title="📈 Stock & Crypto Predictor", layout="wide")
 st.title("🔮 Real-Time Stock & Crypto Dashboard")
 st.write("🔄 Auto-refreshing every 60 seconds…")
@@ -28,31 +15,38 @@ custom     = st.sidebar.text_input("Custom Ticker (e.g., NFLX, BTC-USD)")
 stocks     = ["AAPL","TSLA","GOOG","MSFT","AMZN","NVDA","META"]
 cryptos    = ["BTC-USD","ETH-USD","SOL-USD","ADA-USD","DOGE-USD","XRP-USD","LTC-USD"]
 tickers    = stocks if asset_type=="Stocks" else cryptos
-ticker     = (custom.upper() if custom else
-              st.sidebar.selectbox("Select Ticker", tickers))
+ticker     = custom.upper() if custom else st.sidebar.selectbox("Select Ticker", tickers)
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365))
 end_date   = st.sidebar.date_input("End Date",   datetime.now())
-horizon    = 7 if st.sidebar.selectbox("Forecast Horizon",
-               ["7-Day","3-Day"])=="7-Day" else 3
+horizon    = 7 if st.sidebar.selectbox("Forecast Horizon", ["7-Day","3-Day"])=="7-Day" else 3
 
-# --- Fetch & clean data ---
-df = yf.download(ticker, start=start_date, end=end_date, group_by=False)
-if isinstance(df.columns, pd.MultiIndex):
-    df.columns = df.columns.droplevel(0)
-df = df[['Open','High','Low','Close','Volume']].dropna()
+# --- Cached data fetch ---
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_data(ticker, start, end):
+    import yfinance as yf
+    df = yf.download(ticker, start=start, end=end, group_by=False)
+    # drop any weird multi‐index
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(0)
+    df = df[['Open','High','Low','Close','Volume']].dropna()
+    return df
+
+df = fetch_data(ticker, start_date, end_date)
 if df.empty:
     st.error("❌ No data—check your ticker")
     st.stop()
 
-# --- Current & live price ---
+# --- Current & live price UI ---
 last_close = float(df['Close'].iloc[-1])
 st.subheader(f"💰 Current Price for {ticker}")
 st.metric("Last Close", f"${last_close:.2f}")
+
 try:
-    info  = yf.Ticker(ticker).info
-    live  = info.get("regularMarketPrice", last_close)
-    prev  = info.get("previousClose",    last_close)
-    pct   = (live - prev) / prev * 100
+    import yfinance as yf
+    info = yf.Ticker(ticker).info
+    live = info.get("regularMarketPrice", last_close)
+    prev = info.get("previousClose",    last_close)
+    pct  = (live - prev) / prev * 100
     arrow = "🔺" if pct>=0 else "🔻"
     color = "green" if pct>=0 else "red"
     st.markdown(f"""
@@ -64,11 +58,13 @@ try:
 except Exception as e:
     st.warning(f"⚠️ Live ticker unavailable: {e}")
 
-# --- Earnings & Dividend Info ---
+# --- Earnings & dividend UI ---
 try:
+    import yfinance as yf
     tkr = yf.Ticker(ticker)
     cal = tkr.calendar
-    # next earnings
+
+    # Next earnings
     if isinstance(cal, dict):
         ed = cal.get('Earnings Date')
         if ed:
@@ -83,7 +79,8 @@ try:
             st.markdown(f"**🗓️ Next Earnings Date:** {nxt}")
         else:
             st.markdown("**🗓️ Next Earnings Date:** N/A")
-    # last EPS
+
+    # Last EPS
     qearn = tkr.quarterly_earnings
     if isinstance(qearn, pd.DataFrame) and not qearn.empty:
         ld  = pd.to_datetime(qearn.index[-1]).date()
@@ -91,7 +88,8 @@ try:
         st.markdown(f"**📊 Last Earnings (Quarter):** {ld} (EPS: ${eps:.2f})")
     else:
         st.markdown("**📊 Last Earnings (Quarter):** N/A")
-    # last dividend
+
+    # Last dividend
     divs = tkr.dividends
     if isinstance(divs, (pd.Series,pd.DataFrame)) and not divs.empty:
         if isinstance(divs, pd.DataFrame): divs = divs.iloc[:,0]
@@ -100,10 +98,11 @@ try:
         st.markdown(f"**💰 Last Dividend:** {dd} (${da:.2f})")
     else:
         st.markdown("**💰 Dividend:** N/A")
+
 except Exception as e:
     st.warning(f"⚠️ Could not fetch earnings/dividend info: {e}")
 
-# --- Feature Engineering & Price/RSI plot ---
+# --- Feature engineering & Price/RSI plot ---
 delta      = df['Close'].diff()
 gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
 avg_g = gain.ewm(span=14, adjust=False).mean()
@@ -119,11 +118,12 @@ tr = pd.concat([
     (df['High'] - df['Close'].shift()).abs(),
     (df['Low']  - df['Close'].shift()).abs()
 ], axis=1).max(axis=1)
-df['ATR']         = tr.rolling(14).mean()
-df['Vol_Spike']   = (df['Volume'] > df['Volume'].rolling(10).mean()*1.5).astype(int)
+df['ATR']       = tr.rolling(14).mean()
+df['Vol_Spike'] = (df['Volume'] > df['Volume'].rolling(10).mean()*1.5).astype(int)
+
 try:
-    ed = pd.to_datetime(tkr.calendar.loc['Earnings Date'][0]).date()
-    df['Earnings_Flag'] = (df.index.date==ed).astype(int)
+    ed = pd.to_datetime(pd.to_datetime(yf.Ticker(ticker).calendar.loc['Earnings Date'][0])).date()
+    df['Earnings_Flag'] = (df.index.date == ed).astype(int)
 except:
     df['Earnings_Flag'] = 0
 
@@ -131,9 +131,20 @@ df.dropna(inplace=True)
 st.subheader("📈 Price & RSI")
 st.line_chart(df[['Close','RSI']])
 
-# --- Cached modeling function ---
+# --- Model training (lazy imports!) ---
 @st.cache_data(ttl=600, show_spinner=False)
 def train_models(df, horizon):
+    # lazy imports
+    from sklearn.ensemble     import RandomForestRegressor
+    from sklearn.linear_model import LinearRegression
+    from xgboost              import XGBRegressor
+    from sklearn.metrics      import mean_absolute_percentage_error
+    from prophet              import Prophet
+    from statsmodels.tsa.arima.model import ARIMA
+    from tensorflow.keras.models    import Sequential
+    from tensorflow.keras.layers    import LSTM, Dense
+    from sklearn.preprocessing      import MinMaxScaler
+
     # build modeling frame
     mdl = pd.DataFrame({
         'ds': df.index,
@@ -152,41 +163,42 @@ def train_models(df, horizon):
     split   = int(len(mdl)*0.8)
     train   = mdl.iloc[:split]
     test    = mdl.iloc[split:]
-    X_train = train[['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']]
-    y_train = train['y']
-    X_test  = test[['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']]
-    y_test  = test['y']
+    feats   = ['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']
+    X_train, y_train = train[feats], train['y']
+    X_test,  y_test  = test[feats],  test['y']
 
     results = {}
+
     # Random Forest
     rf = RandomForestRegressor(n_estimators=100).fit(X_train, y_train)
-    p   = rf.predict(X_test)
+    p  = rf.predict(X_test)
     results["Random Forest"] = {
-      "pred": p[-1],
+      "pred": rf.predict(X_train.tail(1))[0],
       "mape": mean_absolute_percentage_error(y_test, p),
-      "forecast": rf.predict(mdl[['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']].iloc[-horizon:])
+      "forecast": rf.predict(mdl[feats].tail(horizon))
     }
 
     # Linear Regression
     lr = LinearRegression().fit(X_train, y_train)
     p  = lr.predict(X_test)
     results["Linear Regression"] = {
-      "pred": p[-1],
+      "pred": lr.predict(X_train.tail(1))[0],
       "mape": mean_absolute_percentage_error(y_test, p),
-      "forecast": lr.predict(mdl[['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']].iloc[-horizon:])
+      "forecast": lr.predict(mdl[feats].tail(horizon))
     }
 
     # XGBoost
     xgb = XGBRegressor(objective='reg:squarederror', n_estimators=100).fit(X_train, y_train)
     p   = xgb.predict(X_test)
     results["XGBoost"] = {
-      "pred": p[-1],
+      "pred": xgb.predict(X_train.tail(1))[0],
       "mape": mean_absolute_percentage_error(y_test, p),
-      "forecast": xgb.predict(mdl[['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag']].iloc[-horizon:])
+      "forecast": xgb.predict(mdl[feats].tail(horizon))
     }
 
     # Prophet
-    pdf = mdl[['ds','y']].copy(); pdf['y']=pdf['y'].astype(float)
+    pdf = mdl[['ds','y']].copy()
+    pdf['y'] = pdf['y'].astype(float)
     m   = Prophet().fit(pdf)
     fut = m.make_future_dataframe(periods=horizon)
     pr  = m.predict(fut)['yhat'].iloc[-horizon:].values
@@ -196,15 +208,15 @@ def train_models(df, horizon):
       "forecast": pr
     }
 
-    # ARIMA
+    # ARIMA (4‐combo grid)
     best_aic, best_order = np.inf, (1,1,0)
-    for p in range(3):
-      for d in range(2):
-        for q in range(3):
+    for p in (0,1):
+      for d in (1,):
+        for q in (0,1):
           try:
             mA = ARIMA(df['Close'], order=(p,d,q)).fit()
             if mA.aic < best_aic:
-              best_aic, best_order = mA.aic, (p,d,q)
+                best_aic, best_order = mA.aic, (p,d,q)
           except:
             pass
     mA   = ARIMA(df['Close'], order=best_order).fit()
@@ -215,12 +227,13 @@ def train_models(df, horizon):
       "forecast": arpr
     }
 
-    # LSTM
+    # LSTM (1 epoch)
     scaler = MinMaxScaler().fit(df['Close'].values.reshape(-1,1))
     scaled = scaler.transform(df['Close'].values.reshape(-1,1))
     Xl, Yl = [], []
     for i in range(60, len(scaled)-horizon):
-      Xl.append(scaled[i-60:i,0]); Yl.append(scaled[i:i+horizon,0])
+      Xl.append(scaled[i-60:i,0])
+      Yl.append(scaled[i:i+horizon,0])
     Xl = np.array(Xl).reshape(-1,60,1)
     Yl = np.array(Yl)
     lstm = Sequential([
@@ -229,8 +242,8 @@ def train_models(df, horizon):
       Dense(horizon)
     ])
     lstm.compile('adam','mse')
-    lstm.fit(Xl, Yl, epochs=3, batch_size=16, verbose=0)
-    pr = lstm.predict(Xl[-1].reshape(1,60,1))[0]
+    lstm.fit(Xl, Yl, epochs=1, batch_size=16, verbose=0)
+    pr   = lstm.predict(Xl[-1].reshape(1,60,1))[0]
     pred = scaler.inverse_transform(pr.reshape(-1,1)).flatten()
     results["LSTM"] = {
       "pred": pred[-1],
@@ -239,12 +252,12 @@ def train_models(df, horizon):
     }
 
     # Ensemble
-    wk = np.array([1/v['mape'] for v in results.values()])
-    wk /= wk.sum()
-    ens = sum(w * v['forecast'] for w,v in zip(wk, results.values()))
-    results["Ensemble"] = {"pred": ens[-1], "mape": None, "forecast": ens}
+    weights = np.array([1/v['mape'] for v in results.values()])
+    weights /= weights.sum()
+    ens_fc   = sum(w * v['forecast'] for w,v in zip(weights, results.values()))
+    results["Ensemble"] = {"pred": ens_fc[-1], "mape": None, "forecast": ens_fc}
 
-    return results, wk
+    return results, weights
 
 # --- Train & Forecast button ---
 if st.sidebar.button("▶️ Train & Forecast"):
@@ -258,8 +271,7 @@ if st.sidebar.button("▶️ Train & Forecast"):
 
     st.subheader("📈 Recommendation")
     st.success(f"Based on {best} (lowest MAPE), recommendation: **{rec}**")
-
-    st.caption("📘 MAPE = Mean Absolute Percentage Error, the average absolute percent difference between predictions and actuals (lower is better).")
+    st.caption("📘 MAPE = Mean Absolute Percentage Error (lower is better).")
 
     # Metrics & forecasts
     st.subheader("📊 Model Predictions & Metrics")
@@ -267,22 +279,21 @@ if st.sidebar.button("▶️ Train & Forecast"):
         m_txt = f"{d['mape']:.2%}" if d['mape'] is not None else "N/A"
         st.write(f"**{name}** → Pred: ${d['pred']:.2f} | MAPE: {m_txt}")
 
-    # 7-Day Forecast comparison
+    # 7-Day Forecast table
     st.subheader(f"📅 {horizon}-Day Forecast Comparison")
-    fc_df = pd.DataFrame({
-      'Date': pd.date_range(df.index[-1]+timedelta(days=1), periods=horizon)
-    })
+    fc_df = pd.DataFrame({'Date': pd.date_range(df.index[-1]+timedelta(days=1), periods=horizon)})
     for name,d in results.items():
         fc_df[name] = d['forecast']
     st.dataframe(fc_df)
 
-    # Confidence Bar chart
+    # Confidence bar chart (lazy Plotly import)
+    from plotly import graph_objects as go
     st.subheader("📉 Model Confidence (Inverse-MAPE Weights)")
     fig = go.Figure(go.Bar(
-      x=list(results.keys()),
-      y=weights,
-      text=[f"{w:.2%}" for w in weights],
-      textposition="auto"
+        x=list(results.keys()),
+        y=weights,
+        text=[f"{w:.2%}" for w in weights],
+        textposition="auto"
     ))
     fig.update_layout(xaxis_title="Model", yaxis_title="Weight")
     st.plotly_chart(fig, use_container_width=True)
