@@ -32,10 +32,12 @@ horizon    = 7 if st.sidebar.selectbox("Forecast Horizon", ["7-Day","3-Day"])=="
 
 # ——— Fetch & clean price data ———
 raw = yf.download(ticker, start=start_date, end=end_date, group_by=False)
-if isinstance(raw.columns, pd.MultiIndex): raw.columns = raw.columns.droplevel(0)
-df  = raw[['Open','High','Low','Close','Volume']].copy()
+if isinstance(raw.columns, pd.MultiIndex):
+    raw.columns = raw.columns.droplevel(0)
+df = raw[['Open','High','Low','Close','Volume']].copy()
 if df.empty:
-    st.error("❌ No data—check your ticker"); st.stop()
+    st.error("❌ No data—check your ticker")
+    st.stop()
 
 # ——— Enforce business days & fill gaps ———
 df.index = pd.DatetimeIndex(df.index)
@@ -61,7 +63,8 @@ try:
         <span style="font-size:20px;color:{color};">
           ${live:.2f} {arrow} {pct:.2f}%
         </span>
-      </div>""", unsafe_allow_html=True)
+      </div>
+    """, unsafe_allow_html=True)
 except Exception as e:
     st.warning(f"⚠️ Live data unavailable: {e}")
 
@@ -71,10 +74,10 @@ try:
     cal = tkr.calendar
     if isinstance(cal, dict):
         ed = cal.get('Earnings Date')
-        nxt = pd.to_datetime(ed[0] if ed else None).date() if ed else None
+        nxt = pd.to_datetime(ed[0] if isinstance(ed,(list,tuple)) else ed).date() if ed else None
     else:
         nxt = pd.to_datetime(cal.loc['Earnings Date'][0]).date() if 'Earnings Date' in cal.index else None
-    st.markdown(f"**🗓️ Next Earnings Date:** {nxt or 'N/A'}")
+    st.markdown(f"**🗓️ Next Earnings Date:** {nxt if nxt else 'N/A'}")
 
     qearn = tkr.quarterly_earnings
     if isinstance(qearn, pd.DataFrame) and not qearn.empty:
@@ -95,7 +98,8 @@ try:
 
     ex_ts = tkr.info.get("exDividendDate")
     ex_date = datetime.fromtimestamp(ex_ts).date() if ex_ts else None
-    st.markdown(f"**🪙 Ex-Dividend Date:** {ex_date or 'N/A'}")
+    st.markdown(f"**🪙 Ex-Dividend Date:** {ex_date if ex_date else 'N/A'}")
+
 except Exception as e:
     st.warning(f"⚠️ Could not fetch earnings/dividend info: {e}")
 
@@ -105,12 +109,12 @@ st.subheader("📈 Market Breadth & Macro")
 try:
     rawm = yf.download(macros, start=start_date, end=end_date, group_by="ticker")
     macro_df = pd.DataFrame({
-      m: rawm[m]['Close'] if (m in rawm and 'Close' in rawm[m])
-         else rawm[m].droplevel(0,axis=1)['Close']
-      for m in macros
+        m: rawm[m]['Close'] if (m in rawm and 'Close' in rawm[m])
+           else rawm[m].droplevel(0,axis=1)['Close']
+        for m in macros
     })
     macro_df = macro_df.asfreq('B').ffill().loc[df.index]
-    latest   = macro_df.iloc[-1]
+    latest = macro_df.iloc[-1]
     st.write(f"VIX: {latest['^VIX']:.2f}   |   TNX: {latest['^TNX']:.2f}%")
     st.write(f"SPY: {latest['SPY']:.2f}   |   XLK: {latest['XLK']:.2f}   |   XLF: {latest['XLF']:.2f}")
 except Exception as e:
@@ -141,8 +145,9 @@ delta      = df['Close'].diff()
 gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
 avg_g = gain.ewm(span=14, adjust=False).mean()
 avg_l = loss.ewm(span=14, adjust=False).mean()
-df['RSI']  = 100 - (100/(1+avg_g/avg_l))
-ema12, ema26 = df['Close'].ewm(span=12, adjust=False).mean(), df['Close'].ewm(span=26, adjust=False).mean()
+df['RSI']  = 100 - (100 / (1 + avg_g/avg_l))
+ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+ema26 = df['Close'].ewm(span=26, adjust=False).mean()
 df['MACD'] = ema12 - ema26 - (ema12-ema26).ewm(span=9, adjust=False).mean()
 tr = pd.concat([
     df['High'] - df['Low'],
@@ -153,7 +158,7 @@ df['ATR']       = tr.rolling(14).mean()
 df['Vol_Spike'] = (df['Volume'] > df['Volume'].rolling(10).mean()*1.5).astype(int)
 try:
     ed = pd.to_datetime(tkr.calendar.loc['Earnings Date'][0]).date()
-    df['Earnings_Flag'] = (df.index.date == ed).astype(int)
+    df['Earnings_Flag'] = (df.index.date==ed).astype(int)
 except:
     df['Earnings_Flag'] = 0
 
@@ -164,8 +169,7 @@ st.line_chart(df[['Close','RSI']])
 @st.cache_data(ttl=600, show_spinner=False)
 def train_models(df, macro_ret, horizon):
     feats = ['Lag1','Lag2','RSI','MACD','ATR','Vol_Spike','Earnings_Flag'] + list(macro_ret.columns)
-    mdl   = pd.DataFrame({'ds': df.index, 'y': df['Close']})
-    # build all features
+    mdl = pd.DataFrame({'ds': df.index, 'y': df['Close']})
     for f in feats:
         if f in macro_ret:
             mdl[f] = macro_ret[f]
@@ -177,113 +181,96 @@ def train_models(df, macro_ret, horizon):
             mdl[f] = df[f]
     mdl.dropna(inplace=True)
 
-    split     = int(len(mdl)*0.8)
+    split = int(len(mdl)*0.8)
     train, test = mdl.iloc[:split], mdl.iloc[split:]
     Xtr, ytr = train[feats], train['y']
     Xte, yte = test[feats],  test['y']
 
-    results    = {}
+    results = {}
     test_preds = {}
 
-    ## 1) Random Forest
-    rf   = RandomForestRegressor(n_estimators=100).fit(Xtr, ytr)
+    # Random Forest
+    rf = RandomForestRegressor(n_estimators=100).fit(Xtr,ytr)
     pr_rf = rf.predict(Xte)
-    # iterative 1-step-ahead forecast:
-    last_row = mdl.iloc[-1].copy()
-    rf_fc    = []
-    for _ in range(horizon):
-        X0 = last_row[feats].values.reshape(1,-1)
-        y0 = rf.predict(X0)[0]
-        rf_fc.append(y0)
-        # roll lags:
-        last_row['Lag2'] = last_row['Lag1']
-        last_row['Lag1'] = y0
     results["Random Forest"] = {
-      "pred": rf_fc[-1],
-      "mape": mean_absolute_percentage_error(yte, pr_rf),
-      "forecast": np.array(rf_fc)
+      "pred": pr_rf[-1],
+      "mape": mean_absolute_percentage_error(yte,pr_rf),
+      "forecast": rf.predict(mdl[feats].iloc[-horizon:])
     }
     test_preds["Random Forest"] = pr_rf
 
-    ## 2) XGBoost
-    xgb   = XGBRegressor(objective='reg:squarederror',n_estimators=100).fit(Xtr,ytr)
+    # XGBoost
+    xgb = XGBRegressor(objective='reg:squarederror',n_estimators=100).fit(Xtr,ytr)
     pr_xg = xgb.predict(Xte)
-    last_row = mdl.iloc[-1].copy()
-    xg_fc    = []
-    for _ in range(horizon):
-        X0 = last_row[feats].values.reshape(1,-1)
-        y0 = xgb.predict(X0)[0]
-        xg_fc.append(y0)
-        last_row['Lag2'] = last_row['Lag1']
-        last_row['Lag1'] = y0
     results["XGBoost"] = {
-      "pred": xg_fc[-1],
-      "mape": mean_absolute_percentage_error(yte, pr_xg),
-      "forecast": np.array(xg_fc)
+      "pred": pr_xg[-1],
+      "mape": mean_absolute_percentage_error(yte,pr_xg),
+      "forecast": xgb.predict(mdl[feats].iloc[-horizon:])
     }
     test_preds["XGBoost"] = pr_xg
 
-    ## 3) Prophet
+    # Prophet
     pdf = pd.DataFrame({'ds':train.index,'y':train['y'].astype(float)})
     pm  = Prophet().fit(pdf)
     df_test = pd.DataFrame({'ds':test.index})
     pr_pt = pm.predict(df_test)['yhat'].values
-    fut   = pm.predict(pm.make_future_dataframe(periods=horizon))['yhat'].iloc[-horizon:].values
     results["Prophet"] = {
-      "pred": fut[-1],
+      "pred": pr_pt[-1],
       "mape": mean_absolute_percentage_error(yte, pr_pt),
-      "forecast": fut
+      "forecast": pm.predict(pm.make_future_dataframe(periods=horizon))['yhat'].iloc[-horizon:].values
     }
     test_preds["Prophet"] = pr_pt
 
-    ## 4) ARIMA
+    # ARIMA
     best_aic, best_ord = np.inf,(1,1,0)
     for p in range(3):
       for d in range(2):
         for q in range(3):
           try:
-            mA = SARIMAX(df['Close'],order=(p,d,q),trend='ct',
-                         enforce_stationarity=False,enforce_invertibility=False
+            mA = SARIMAX(df['Close'],
+                         order=(p,d,q), trend='ct',
+                         enforce_stationarity=False,
+                         enforce_invertibility=False
                        ).fit(disp=False)
             if mA.aic<best_aic:
               best_aic,best_ord=mA.aic,(p,d,q)
           except: pass
-    arma   = SARIMAX(df['Close'],order=best_ord,trend='ct',
-                     enforce_stationarity=False,enforce_invertibility=False
-                   ).fit(disp=False)
-    pr_ar = arma.predict(start=test.index[0],end=test.index[-1]).values
+    arma = SARIMAX(df['Close'],
+                   order=best_ord, trend='ct',
+                   enforce_stationarity=False,
+                   enforce_invertibility=False).fit(disp=False)
+    pr_ar = arma.predict(start=test.index[0], end=test.index[-1]).values
     frc_ar = arma.forecast(steps=horizon).values
     results["ARIMA"] = {
       "pred": float(frc_ar[-1]),
-      "mape": mean_absolute_percentage_error(yte, pr_ar),
+      "mape": mean_absolute_percentage_error(yte,pr_ar),
       "forecast": frc_ar
     }
     test_preds["ARIMA"] = pr_ar
 
-    ## 5) LSTM
+    # LSTM
     scaler = MinMaxScaler().fit(df['Close'].values.reshape(-1,1))
     scaled = scaler.transform(df['Close'].values.reshape(-1,1))
-    Xl,Yl  = [],[]
+    Xl,Yl = [],[]
     for i in range(60,len(scaled)-horizon):
       Xl.append(scaled[i-60:i,0]); Yl.append(scaled[i:i+horizon,0])
     Xl = np.array(Xl).reshape(-1,60,1); Yl = np.array(Yl)
     lstm = Sequential([LSTM(50,return_sequences=True,input_shape=(60,1)),
-                       LSTM(50),Dense(horizon)])
+                      LSTM(50),Dense(horizon)])
     lstm.compile('adam','mse')
     lstm.fit(Xl,Yl,epochs=5,batch_size=16,verbose=0)
     pr_ls = []
     for dt in test.index:
       pos = df.index.get_loc(dt)
       seq = scaled[pos-60:pos,0].reshape(1,60,1)
-      p1  = lstm.predict(seq,verbose=0)[0,0]
+      p1 = lstm.predict(seq,verbose=0)[0][0]
       pr_ls.append(float(scaler.inverse_transform([[p1]])[0,0]))
     frc_ls = scaler.inverse_transform(
-               lstm.predict(scaled[-60:].reshape(1,60,1),verbose=0)
-                   .reshape(-1,1)
-             ).flatten()
+                lstm.predict(scaled[-60:].reshape(1,60,1),verbose=0)
+                  .reshape(-1,1)).flatten()
     results["LSTM"] = {
       "pred": float(frc_ls[-1]),
-      "mape": mean_absolute_percentage_error(yte, pr_ls),
+      "mape": mean_absolute_percentage_error(yte,pr_ls),
       "forecast": frc_ls
     }
     test_preds["LSTM"] = np.array(pr_ls)
@@ -295,6 +282,7 @@ if st.sidebar.button("▶️ Train & Forecast"):
     with st.spinner("Training all models…"):
         results, test_idx, test_preds = train_models(df, macro_ret, horizon)
 
+    # Recommendation
     valid = {k:v for k,v in results.items() if v['mape'] is not None}
     best  = min(valid, key=lambda k: valid[k]['mape'])
     rec   = "Buy ✅" if valid[best]['forecast'][-1] > last_close else "Hold ⚖️"
@@ -302,28 +290,23 @@ if st.sidebar.button("▶️ Train & Forecast"):
     st.success(f"Based on {best} (lowest MAPE), recommendation: **{rec}**")
     st.caption("📘 MAPE = Mean Absolute Percentage Error (lower is better).")
 
-    # Metrics
+    # Model metrics
     st.subheader("📊 Model Predictions & Metrics")
     for name,d in results.items():
         st.write(f"**{name}** → Pred: ${d['pred']:.2f} | MAPE: {d['mape']:.2%}")
 
     # Forecast table
     st.subheader(f"📅 {horizon}-Day Forecast Comparison")
-    fc = pd.DataFrame(
-      {m:results[m]['forecast'] for m in results},
-      index=pd.bdate_range(start=df.index[-1]+pd.tseries.offsets.BDay(1),
-                            periods=horizon)
-    )
+    fc = pd.DataFrame({m:results[m]['forecast'] for m in results},
+                      index=pd.date_range(df.index[-1]+timedelta(days=1),
+                                          periods=horizon, freq='B'))
     st.dataframe(fc.round(2))
 
-    # 7-Day Backtest: Actual vs Predicted
+    # 7-Day Backtest Accuracy table
     back_h = 7
-    bt_idx = test_idx[-back_h:]
-    back_df = pd.DataFrame(
-      {m: test_preds[m][-back_h:] for m in test_preds},
-      index=bt_idx
-    )
-    back_df['Actual Close'] = df['Close'].reindex(bt_idx)
+    idx    = test_idx[-back_h:]
+    back_df = pd.DataFrame({m: test_preds[m][-back_h:] for m in test_preds}, index=idx)
+    back_df['Actual Close'] = df['Close'].loc[idx]
     st.subheader("📉 7-Day Backtest: Actual vs Predicted")
     st.dataframe(back_df.round(2))
 
